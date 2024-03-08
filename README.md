@@ -1,2 +1,8 @@
 # IP-Camera-API
-Python HTTP Server to receive XML API posts from Viewtron IP cameras.
+A simple HTTP server to integrate with the HTTP Post / XML API of Viewtron IP cameras.
+Viewtron IP cameras have the ability to send an HTTP Post to an external server
+when an alarm event occurs. Alarm events include human detection, car detection,
+face detection / facial recognition, license plate detection / automatic license plate recogition.
+All of the server connection information is configured on the Viewtron IP camera.
+You can find Viewtron IP cameras at https://www.Viewtron.com
+Written by Mike Haldas, mike@cctvcamerapros.net
