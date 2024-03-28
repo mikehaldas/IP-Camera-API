@@ -5,7 +5,6 @@ when an alarm event occurs. Alarm events include human detection, car detection,
 face detection / facial recognition, license plate detection / automatic license plate recogition.
 All of the server connection information is configured on the Viewtron IP camera.
 You can find Viewtron IP cameras at https://www.Viewtron.com
-Written by Mike Haldas, mike@cctvcamerapros.net
 """
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -20,6 +19,9 @@ DEBUG = 1
 
 SERVER_PORT = 5002 
 # this must match the Server Port specified on the HTTP POST config screen of the IP camera
+
+DUMP_POST_URL = '/DUMP' 
+KEEP_ALIVE_URL = '/SendKeepalive'
 
 LPR_POST_URL = '/LPR' 
 # this must match the URL specified on the HTTP POST config screen of the IP camera
@@ -100,8 +102,20 @@ class handler(BaseHTTPRequestHandler):
 			time_formatted = dt.fromtimestamp(int(time_stamp_tr))
 			print("Timestamp Formatted: " + str(time_formatted) + "\n")
 
+			if self.path == KEEP_ALIVE_URL:
+				print("Keep Alive Post Received\n")
+
+			elif self.path == DUMP_POST_URL:
+				print("BEGIN Raw Body Dump\n")
+				print(post_body)
+				print("END raw Body Dump\n")
+
+				print("Begin JSON Dump\n\n")
+				print(json.dumps(my_dict))
+				print("End JSON Dump\n\n")
+
 			#  if this is a LPR event, do this
-			if self.path == LPR_POST_URL:
+			elif self.path == LPR_POST_URL:
 
 				print("Handling LPR request\n")
 
@@ -121,7 +135,7 @@ class handler(BaseHTTPRequestHandler):
 					fh.write(img_data)
 
 				# add entry to csv file
-				row = [ip_cam, alarm_type, time_formatted, IMG_DIR, plate_img_name, ov_img_name]
+				row = [ip_cam, alarm_type, time_formatted, plate_number, IMG_DIR, plate_img_name, ov_img_name]
 				with open(CSV_FILE, 'a', newline='', encoding='utf-8') as csvfile:
 					csvwriter = csv.writer(csvfile)
 					csvwriter.writerow(row)
