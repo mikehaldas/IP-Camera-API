@@ -14,7 +14,7 @@ import base64
 import json
 import csv
 
-DEBUG = 1 
+DEBUG = 0 
 # set to 1 to print raw HTTP body and JSON conversion
 
 SERVER_PORT = 5002 
@@ -29,16 +29,24 @@ LPR_POST_URL = '/LPR'
 # For now, I setup / LPR for licesne plate recognition events. Non-LPR events will not have fields
 # in their XML response for license plate data, so a special handler is needed for LPR events.
 
-IMG_DIR = '/home/admin/api/images/' 
+FACE_POST_URL = '/FACE' 
+
+PLATE_IMG_DIR = '/home/admin/api/images/plates/' 
 # don't forget to create this on your file system before running
 
-CSV_FILE = 'alarms.csv'
-# each API post will be logged here
+FACE_IMG_DIR = '/home/admin/api/images/faces/' 
+# don't forget to create this on your file system before running
+
+PLATE_CSV_FILE = 'plates.csv'
+# each License Place recognition API post will be logged here
+
+FACE_CSV_FILE = 'faces.csv'
+# each facial recognition API post will be logged here
 
 class handler(BaseHTTPRequestHandler):
 
-	protocol_version = 'HTTP/1.1'
 	# server must use http v1.1 protocol
+	protocol_version = 'HTTP/1.1'
 
 	def do_GET(self):
 
@@ -114,10 +122,46 @@ class handler(BaseHTTPRequestHandler):
 				print(json.dumps(my_dict))
 				print("End JSON Dump\n\n")
 
+			elif self.path == FACE_POST_URL:
+
+				
+				if DEBUG == 1:
+					print("Handling facial recognition post\n")
+					print("BEGIN Raw Body Dump\n")
+					print(post_body)
+					print("END raw Body Dump\n")
+
+					print("Begin JSON Dump\n\n")
+					print(json.dumps(my_dict))
+					print("End JSON Dump\n\n")
+					print("LISTINFO: " + str(my_dict['config']['listInfo']['@count']))
+
+				# do snapshot images exist?
+				if int(my_dict['config']['listInfo']['@count']) > 0 and int(my_dict['config']['listInfo']['item']['targetImageData']['targetBase64Length']['#text']):
+
+					print("Snapshots exist in the post")
+					# save overview snapshot
+					ov_img_name = time_stamp + "-oview.jpg"
+					img_data = base64.b64decode(my_dict['config']['sourceDataInfo']['sourceBase64Data']['#text'])
+					with open(FACE_IMG_DIR + ov_img_name, "wb") as fh:
+						fh.write(img_data)
+
+					# save face snapshot
+					face_img_name = time_stamp + "-face.jpg"
+					img_data = base64.b64decode(my_dict['config']['listInfo']['item']['targetImageData']['targetBase64Data']['#text'])
+					with open(FACE_IMG_DIR + face_img_name, "wb") as fh:
+						fh.write(img_data)
+
+					# add entry to csv file
+					row = [ip_cam, alarm_type, time_formatted, FACE_IMG_DIR, face_img_name, ov_img_name]
+					with open(FACE_CSV_FILE, 'a', newline='', encoding='utf-8') as csvfile:
+						csvwriter = csv.writer(csvfile)
+						csvwriter.writerow(row)
+
 			#  if this is a LPR event, do this
 			elif self.path == LPR_POST_URL:
 
-				print("Handling LPR request\n")
+				print("Handling LPR post\n")
 
 				plate_number = my_dict['config']['listInfo']['item'][1]['plateNumber']['#text']
 				print("Plate Number: " + plate_number + "\n")
@@ -125,18 +169,18 @@ class handler(BaseHTTPRequestHandler):
 				# save plate snapshot
 				plate_img_name = time_stamp + ".jpg"
 				img_data = base64.b64decode(my_dict['config']['listInfo']['item'][1]['targetImageData']['targetBase64Data']['#text'])
-				with open(IMG_DIR + plate_img_name, "wb") as fh:
+				with open(PLATE_IMG_DIR + plate_img_name, "wb") as fh:
 					fh.write(img_data)
 
 				# save overview snashot
 				ov_img_name = time_stamp + "-oview.jpg" 
 				img_data = base64.b64decode(my_dict['config']['listInfo']['item'][0]['targetImageData']['targetBase64Data']['#text'])
-				with open(IMG_DIR + ov_img_name, "wb") as fh:
+				with open(PLATE_IMG_DIR + ov_img_name, "wb") as fh:
 					fh.write(img_data)
 
 				# add entry to csv file
-				row = [ip_cam, alarm_type, time_formatted, plate_number, IMG_DIR, plate_img_name, ov_img_name]
-				with open(CSV_FILE, 'a', newline='', encoding='utf-8') as csvfile:
+				row = [ip_cam, alarm_type, time_formatted, plate_number, PLATE_IMG_DIR, plate_img_name, ov_img_name]
+				with open(PLATE_CSV_FILE, 'a', newline='', encoding='utf-8') as csvfile:
 					csvwriter = csv.writer(csvfile)
 					csvwriter.writerow(row)
 
@@ -144,7 +188,7 @@ class handler(BaseHTTPRequestHandler):
 			print("No_XML in POST request")
 
 with HTTPServer(('', SERVER_PORT), handler) as server:
-	print("Server Starting...\n")
+	print("Server Starting on port " + str(SERVER_PORT))
 	try:
 		server.serve_forever()
 	except KeyboardInterrupt:
