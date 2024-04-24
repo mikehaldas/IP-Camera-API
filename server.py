@@ -10,6 +10,7 @@ You can find Viewtron IP cameras at https://www.Viewtron.com
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from datetime import datetime as dt
+from viewtron import * 
 import xmltodict
 import subprocess
 import base64
@@ -28,27 +29,14 @@ SERVER_PORT = 5002
 
 KEEP_ALIVE_URL = '/SendKeepalive'
 DUMP_POST_URL = '/DUMP' 
-FACE_POST_URL = '/FACE' 
-INTRUSION_POST_URL = '/INTRUSION' 
 
 API_POST_URL = '/API'
 # API_POST_URL is used for face detection, intrusion detection, line crossing, line counting events
 
-CSV_FILE = 'events.csv'
+CSV_FILE = '/home/admin/api/events.csv'
 # all events eccept for LPR events will be logged here.
 
 IMG_DIR = '/home/admin/api/images/' 
-# don't forget to create this on your file system before running
-
-LPR_POST_URL = '/LPR' 
-# license plate detection events have a different XML structure.
-# this must match the URL specified on the HTTP POST config screen of the IP camera.
-# you can specify different URLs for different IP cameras, then add the corresponding handler in the server.
-
-PLATE_CSV_FILE = 'plates.csv'
-# each License Place recognition API post will be logged here.
-
-PLATE_IMG_DIR = '/home/admin/api/images/plates/' 
 # don't forget to create this on your file system before running
 
 class handler(BaseHTTPRequestHandler):
@@ -88,123 +76,87 @@ class handler(BaseHTTPRequestHandler):
 			# convert XML to Python dictionary. Easier to work with.
 			my_dict = xmltodict.parse(post_body)
 
-			if DEBUG == 1 or DUMP_POST_URL:
-
-				print("Begin JSON Dump\n\n")
-				print(json.dumps(my_dict))
-				print("End JSON Dump\n\n")
-
-				print("Possible Alarm Types: ")
-				print(str(my_dict['config']['types']['openAlramObj']) + "\n")
-
-				print("Possible Target Types: ")
-				print(str(my_dict['config']['types']['targetType']) + "\n")
-
-				print("Subscribe Option: ")
-				print(str(my_dict['config']['subscribeOption']['#text']) + "\n")
-	
-			ip_cam = my_dict['config']['deviceName']['#text']
-			print("IP Camera Name: " + ip_cam + "\n")
-
 			alarm_type = my_dict['config']['smartType']['#text']
 			print("Alarm Type: " + alarm_type + "\n")
 
-			time_stamp = str(my_dict['config']['currentTime']['#text'])
-			print("Raw Timestamp in microseconds: " + time_stamp + "\n")
+			class_lookup = { 
+				'VFD': {'class' : FaceDetection },
+				'VSD': {'class' : VideoMetadata },
+				'VEHICE': {'class' : LPR },
+				'PEA': {'class' : IntrusionDetection }
+			}
 
-			time_stamp_tr = time_stamp[:10]
-			print("Timestamp with microseconds removed: " + time_stamp_tr + "\n")
+			VT = class_lookup[alarm_type]['class'](post_body)
+			#print("OBJECT dump_json(): " + str(VT.dump_json())
 
-			time_formatted = dt.fromtimestamp(int(time_stamp_tr))
-			print("Timestamp Formatted: " + str(time_formatted) + "\n")
+			print("OBJ Possible Alarm Types: " + str(VT.get_alarm_types()) + "\n")
+			print("OBJ Possible Target Types: " + str(VT.get_target_types()) + "\n")
+			print("OBJ Timestamp Formatted: " + VT.get_time_stamp_formatted() + "\n")
+
+			print("IP Camera Name: " + VT.get_ip_cam() + "\n")
+			print("Alarm Type: " + VT.get_alarm_type() + "\n")
+			print("Raw Timestamp in microseconds: " + VT.get_time_stamp() + "\n")
+			print("Timestamp Formatted: " + str(VT.get_time_stamp_formatted()) + "\n")
 
 			if self.path == DUMP_POST_URL:
 				print("Post Body Dumped. Nothing else to do.")
 
 			elif self.path == API_POST_URL:
 
-				# do snapshot images exist?
-				if int(my_dict['config']['listInfo']['@count']) > 0 and int(my_dict['config']['listInfo']['item']['targetImageData']['targetBase64Length']['#text']):
-					print("Snapshots exist in the post")
+				#if VT.get_alarm_type() == 'VSD':
+				#	with open("VSD.xml", "a") as xmlfile:
+				#		xmlfile.write(str(post_body))
+				#		xmlfile.write("-------END------\n\n\n\n")
 
-					# turn on light that is connected to Raspberry Pi. Will document this soon.
-					#subprocess.Popen(["/usr/bin/python3", "/home/admin/api/relay.py"])
+				# do snapshot images exist?
+				if VT.has_images:
+					print("YES! Snapshots exist in the post")
+
+					# turn on light that is connected to Raspberry Pi
+					subprocess.Popen(["/usr/bin/python3", "/home/admin/api/relay.py"])
 
 					# save overview snapshot
-					ov_img_name = time_stamp + "-oview.jpg"
-					img_data = base64.b64decode(my_dict['config']['sourceDataInfo']['sourceBase64Data']['#text'])
+					ov_img_name = VT.get_time_stamp() + "-overview.jpg"
+					#img_data = base64.b64decode(my_dict['config']['sourceDataInfo']['sourceBase64Data']['#text'])
+					img_data = base64.b64decode(VT.get_source_image())
 					with open(IMG_DIR + ov_img_name, "wb") as fh:
 						fh.write(img_data)
 
 					# save cropped image snapshot
-					img_name = time_stamp + "-event.jpg"
-					img_data = base64.b64decode(my_dict['config']['listInfo']['item']['targetImageData']['targetBase64Data']['#text'])
-					with open(IMG_DIR + img_name, "wb") as fh:
+					target_img_name = VT.get_time_stamp() + "-target.jpg"
+					#img_data = base64.b64decode(my_dict['config']['listInfo']['item']['targetImageData']['targetBase64Data']['#text'])
+					img_data = base64.b64decode(VT.get_target_image())
+					with open(IMG_DIR + target_img_name, "wb") as fh:
 						fh.write(img_data)
 
+					print("ALARM TYPE: " + VT.get_alarm_type())
+					if VT.get_alarm_type() == 'VEHICE':
+						license_plate = VT.get_plate_number()
+					else:
+						license_plate = 'License Plate NA'
+					
 					# add entry to csv file
-					row = [ip_cam, alarm_type, time_formatted, IMG_DIR + img_name, IMG_DIR + ov_img_name]
+					row = [VT.get_ip_cam(), VT.get_alarm_type(), VT.get_alarm_description(), license_plate, VT.get_time_stamp_formatted(), IMG_DIR + target_img_name, IMG_DIR + ov_img_name]
 					with open(CSV_FILE, 'a', newline='', encoding='utf-8') as csvfile:
 						csvwriter = csv.writer(csvfile)
 						csvwriter.writerow(row)
 
-					if DEBUG == 1:
-						with open("XML.txt", "a") as xmlfile:
-							xmlfile.write("\n____________________BEGIN________________________\n")
-							xmlfile.write(str(post_body))
-							xmlfile.write("\n______________________END________________________\n")
-
-
-			#  if this is a LPR event, do this
-			elif self.path == LPR_POST_URL:
-
-				print("Handling LPR post\n")
-
-				plate_number = my_dict['config']['listInfo']['item'][1]['plateNumber']['#text']
-				print("Plate Number: " + plate_number + "\n")
-
-				# save plate snapshot
-				print("Saving plate snapshot\n")
-				plate_img_name = time_stamp + ".jpg"
-				img_data = base64.b64decode(my_dict['config']['listInfo']['item'][1]['targetImageData']['targetBase64Data']['#text'])
-				with open(PLATE_IMG_DIR + plate_img_name, "wb") as fh:
-					fh.write(img_data)
-
-				# save overview snashot
-				print("Saving overview snapshot\n")
-				ov_img_name = time_stamp + "-oview.jpg" 
-				img_data = base64.b64decode(my_dict['config']['listInfo']['item'][0]['targetImageData']['targetBase64Data']['#text'])
-				with open(PLATE_IMG_DIR + ov_img_name, "wb") as fh:
-					fh.write(img_data)
-
-				# add entry to csv file
-				print("Adding CSV entry\n")
-				row = [ip_cam, alarm_type, time_formatted, plate_number, PLATE_IMG_DIR, plate_img_name, ov_img_name]
-				with open(PLATE_CSV_FILE, 'a', newline='', encoding='utf-8') as csvfile:
-					csvwriter = csv.writer(csvfile)
-					csvwriter.writerow(row)
-
-				if DEBUG == 1:
-					with open("XML.txt", "a") as xmlfile:
-						xmlfile.write("\n_____________________BEGIN_______________________\n")
-						xmlfile.write(str(post_body))
-						xmlfile.write("\n______________________END________________________\n")
-
-				# commenting Zapier integration out until I document it. It does work very well.
-				#print("Sending data to Zapier\n")
-				#zap_data = {'camera_name': ip_cam, 'plate_number': plate_number, 'time_stamp': str(time_formatted)}
-				#response = requests.post(
-				#	ZAPIER_URL, data=json.dumps(zap_data),
-				#	headers={'Content-Type': 'application/json'}
-				#)
-				#if response.status_code != 200:
-				#	raise ValueError( 
-				#		'Request to Zapier returned an error %s, the response is:\n%s'
-				#		% (response.status_code, response.text)
-				#)
+		#			if VT.get_alarm_type() == 'VEHICE':
+						# commenting Zapier integration out until I document it. It does work very well.
+						#print("Sending data to Zapier\n")
+						#zap_data = {'camera_name': ip_cam, 'plate_number': plate_number, 'time_stamp': str(time_formatted)}
+						#response = requests.post(
+						#	ZAPIER_URL, data=json.dumps(zap_data),
+						#	headers={'Content-Type': 'application/json'}
+						#)
+						#if response.status_code != 200:
+						#	raise ValueError( 
+						#		'Request to Zapier returned an error %s, the response is:\n%s'
+						#		% (response.status_code, response.text)
+						#)
 		else:
 			print("No_XML in POST request")
-
+	
 with HTTPServer(('', SERVER_PORT), handler) as server:
 	print("Server Starting on port " + str(SERVER_PORT))
 	try:
