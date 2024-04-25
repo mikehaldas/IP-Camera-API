@@ -11,6 +11,7 @@ You can find Viewtron IP cameras at https://www.Viewtron.com
 import xmltodict
 from datetime import datetime as dt
 
+# These are all of the alarm types currrently supported by the Viewtron IP camera API
 VT_alarm_types = {
 	'MOTION': 'Motion Detection',
 	'SENSOR': 'External Sensor',
@@ -45,8 +46,16 @@ class APIpost():
 		self.alarm_description = VT_alarm_types[json['config']['smartType']['#text']]
 		self.time_stamp = json['config']['currentTime']['#text']
 
+		# Convert the timestamp from microseconds to a formatted date to the second.
 		time_stamp_trimmed = self.time_stamp[:10]
 		self.time_stamp_formatted = dt.fromtimestamp(int(time_stamp_trimmed))
+
+	def set_ip_address(self, ip_address):
+		self.ip_address = ip_address
+		return(1)
+
+	def get_ip_address(self):
+		return(self.ip_address)
 
 	def get_alarm_types(self):
 		return(self.alarm_types)
@@ -69,8 +78,29 @@ class APIpost():
 	def get_alarm_type(self):
 		return(self.alarm_type)
 
+	def get_plate_number(self):
+		if hasattr(self, 'plate_number'):
+			return(self.plate_number)
+		else:
+			return('<NO PLATE EXISTS>')
+
 	def has_images(self):
-		return(self.has_images)
+		if hasattr(self, 'has_images'):
+			return(self.has_images)
+		else:
+			return False
+
+	def get_source_image(self):
+		if hasattr(self, 'source_image'):
+			return(self.source_image)
+		else:
+			return None
+
+	def get_target_image(self):
+		if hasattr(self, 'target_image'):
+			return(self.target_image)
+		else:
+			return None
 		
 	def dump_xml(self):
 		print(self.xml)
@@ -78,36 +108,27 @@ class APIpost():
 	def dump_json(self):
 		print(self.json)
 
-class CommonAPI(APIpost):
+# Some alarm types have the target and source image data in the same location in the XML doc
+class CommonImagesLocation(APIpost):
 	def __init__(self, post_body):
 		self.json = xmltodict.parse(post_body)
 		if int(self.json['config']['listInfo']['@count']) > 0 and int(self.json['config']['listInfo']['item']['targetImageData']['targetBase64Length']['#text']):
 			self.source_image = self.json['config']['sourceDataInfo']['sourceBase64Data']['#text']
 			self.target_image = self.json['config']['listInfo']['item']['targetImageData']['targetBase64Data']['#text']
-			self.has_images = 1
-
-		else:
-			self.source_image = '0'
-			self.target_image = '0'
-			self.has_images = 0
+			self.has_images = True
 
 		# inherit base class
 		super().__init__(post_body, self.json)
 
-	def get_source_image(self):
-		return(self.source_image)
 
-	def get_target_image(self):
-		return(self.target_image)
-
-class FaceDetection(CommonAPI, APIpost):
+class FaceDetection(CommonImagesLocation, APIpost):
 	def __init__(self, post_body):
 
 		# inherit base class
 		super().__init__(post_body)
 
 
-class IntrusionDetection(CommonAPI, APIpost):
+class IntrusionDetection(CommonImagesLocation, APIpost):
 	def __init__(self, post_body):
 
 		# inherit base class
@@ -120,41 +141,19 @@ class VideoMetadata(APIpost):
 		if int(self.json['config']['vsd']['sourceDataInfo']['sourceBase64Length']['#text']) and int(self.json['config']['vsd']['targetImageData']['targetBase64Length']['#text']):
 			self.source_image = self.json['config']['vsd']['sourceDataInfo']['sourceBase64Data']['#text']
 			self.target_image = self.json['config']['vsd']['targetImageData']['targetBase64Data']['#text']
-			self.has_images = 1
-		else:
-			self.source_image = '0'
-			self.target_image = '0'
-			self.has_images = 0
+			self.has_images = True
 
 		# inherit base class
 		super().__init__(post_body, self.json)
-
-	def get_source_image(self):
-		return(self.source_image)
-
-	def get_target_image(self):
-		return(self.target_image)
 
 class LPR(APIpost):
 	def __init__(self, post_body):
 		self.json = xmltodict.parse(post_body)
-
-		print("JSON DUMP: " + str(self.json))
-
 		self.plate_number = self.json['config']['listInfo']['item'][1]['plateNumber']['#text']
 		self.source_image = self.json['config']['listInfo']['item'][0]['targetImageData']['targetBase64Data']['#text']
 		self.target_image = self.json['config']['listInfo']['item'][1]['targetImageData']['targetBase64Data']['#text']
-		self.has_images = 1
+		self.has_images = True
 
 		# inherit base class
 		super().__init__(post_body, self.json)
-
-	def get_plate_number(self):
-		return(self.plate_number)
-
-	def get_source_image(self):
-		return(self.source_image)
-
-	def get_target_image(self):
-		return(self.target_image)
 
