@@ -5,7 +5,8 @@ Viewtron IP cameras have the ability to send an HTTP Post to an external server
 when an alarm event occurs. Alarm events include human detection, car detection,
 face detection / facial recognition, license plate detection / automatic license plate recogition.
 All of the server connection information is configured on the Viewtron IP camera.
-You can find Viewtron IP cameras at https://www.Viewtron.com
+You can find Viewtron IP cameras at https://www.Viewtron.com.
+Contact mike@cctvcamerapros.net for questions.
 """
 
 import xmltodict
