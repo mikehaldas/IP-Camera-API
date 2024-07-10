@@ -5,8 +5,7 @@ Viewtron IP cameras have the ability to send an HTTP Post to an external server
 when an alarm event occurs. Alarm events include human detection, car detection,
 face detection / facial recognition, license plate detection / automatic license plate recogition.
 All of the server connection information is configured on the Viewtron IP camera.
-You can find Viewtron IP cameras at https://www.Viewtron.com.
-Contact mike@cctvcamerapros.net for questions.
+You can find Viewtron IP cameras at https://www.Viewtron.com
 """
 
 import xmltodict
@@ -23,14 +22,15 @@ VT_alarm_types = {
 	'VFD': 'Face Detection',
 	'VFD_MATCH': 'Face Match',
 	'VEHICE': 'License Plate Detection',
-	'AOIENTRY': 'Entered Intrusion Zone',
-	'AOILEAVE': 'Exited Intrusion Zone',
+	'AOIENTRY': 'Intrusion Zone Entry',
+	'AOILEAVE': 'Intrusion Zone Exit',
+	'LOITER': 'Loitering Detection',
 	'PASSLINECOUNT': 'Line Crossing Target Count',
 	'TRAFFIC': 'Intrusion Target Count',
 	'FALLING': 'Falling Object Detection',
 	'EA': 'Motorcycle / Bicycle Detection',
 	'VSD': 'Video Metadata',
-	'PVD': 'Illegal Parking Detection'
+	'PVD': 'Illegal Parking'
 }
 
 # Base Class
@@ -85,7 +85,19 @@ class APIpost():
 		else:
 			return('<NO PLATE EXISTS>')
 
-	def has_images(self):
+	def source_image_exists(self):
+		if hasattr(self, 'has_source_image'):
+			return(self.has_source_image)
+		else:
+			return False
+
+	def target_image_exists(self):
+		if hasattr(self, 'has_target_image'):
+			return(self.has_target_image)
+		else:
+			return False
+
+	def images_exist(self):
 		if hasattr(self, 'has_images'):
 			return(self.has_images)
 		else:
@@ -113,10 +125,15 @@ class APIpost():
 class CommonImagesLocation(APIpost):
 	def __init__(self, post_body):
 		self.json = xmltodict.parse(post_body)
-		if int(self.json['config']['listInfo']['@count']) > 0 and int(self.json['config']['listInfo']['item']['targetImageData']['targetBase64Length']['#text']):
+
+		if "listInfo" in self.json['config']:
+			if int(self.json['config']['listInfo']['@count']) > 0 and int(self.json['config']['listInfo']['item']['targetImageData']['targetBase64Length']['#text']):
+				self.target_image = self.json['config']['listInfo']['item']['targetImageData']['targetBase64Data']['#text']
+				self.has_target_image = True
+
+		if 'sourceDataInfo' in self.json['config'] and 'sourceBase64Data' in self.json['config']['sourceDataInfo']:
 			self.source_image = self.json['config']['sourceDataInfo']['sourceBase64Data']['#text']
-			self.target_image = self.json['config']['listInfo']['item']['targetImageData']['targetBase64Data']['#text']
-			self.has_images = True
+			self.has_source_image = True
 
 		# inherit base class
 		super().__init__(post_body, self.json)
@@ -135,14 +152,41 @@ class IntrusionDetection(CommonImagesLocation, APIpost):
 		# inherit base class
 		super().__init__(post_body)
 
+class IntrusionEntry(CommonImagesLocation, APIpost):
+	def __init__(self, post_body):
+
+		# inherit base class
+		super().__init__(post_body)
+
+class IntrusionExit(CommonImagesLocation, APIpost):
+	def __init__(self, post_body):
+
+		# inherit base class
+		super().__init__(post_body)
+
+class LoiteringDetection(CommonImagesLocation, APIpost):
+	def __init__(self, post_body):
+
+		# inherit base class
+		super().__init__(post_body)
+
+class IllegalParking(CommonImagesLocation, APIpost):
+	def __init__(self, post_body):
+
+		# inherit base class
+		super().__init__(post_body)
+
 class VideoMetadata(APIpost):
 	def __init__(self, post_body):
 		self.json = xmltodict.parse(post_body)
 
-		if int(self.json['config']['vsd']['sourceDataInfo']['sourceBase64Length']['#text']) and int(self.json['config']['vsd']['targetImageData']['targetBase64Length']['#text']):
-			self.source_image = self.json['config']['vsd']['sourceDataInfo']['sourceBase64Data']['#text']
-			self.target_image = self.json['config']['vsd']['targetImageData']['targetBase64Data']['#text']
-			self.has_images = True
+		if "vsd" in self.json['config'] and int(self.json['config']['vsd']['sourceDataInfo']['sourceBase64Length']['#text']) > 0:
+				self.source_image = self.json['config']['vsd']['sourceDataInfo']['sourceBase64Data']['#text']
+				self.has_source_image = True
+
+		if "vsd" in self.json['config'] and int(self.json['config']['vsd']['targetImageData']['targetBase64Length']['#text']) > 0:
+				self.target_image = self.json['config']['vsd']['targetImageData']['targetBase64Data']['#text']
+				self.has_target_image = True
 
 		# inherit base class
 		super().__init__(post_body, self.json)
