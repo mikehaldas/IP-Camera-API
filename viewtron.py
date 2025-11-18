@@ -129,15 +129,6 @@ class APIpost:
     def dump_json(self):
         print(self.json)
 
-    def debug_info(self):
-        print("\n--- LPR DEBUG INFO ---")
-        print(f"Plate      : {self.get_plate_number()}")
-        print(f"Confidence : {getattr(self, 'confidence', 'N/A')}")
-        print(f"Source     : {self.source_image_exists()} (len={len(self.get_source_image() or '')})")
-        print(f"Target     : {self.target_image_exists()} (len={len(self.get_target_image() or '')})")
-        print("--- END DEBUG INFO ---\n")
-
-
 class CommonImagesLocation(APIpost):
     def __init__(self, post_body):
         self.json = xmltodict.parse(post_body)
@@ -179,31 +170,25 @@ class FaceDetection(CommonImagesLocation, APIpost):
     def __init__(self, post_body):
         super().__init__(post_body)
 
-
 class IntrusionDetection(CommonImagesLocation, APIpost):
     def __init__(self, post_body):
         super().__init__(post_body)
-
 
 class IntrusionEntry(CommonImagesLocation, APIpost):
     def __init__(self, post_body):
         super().__init__(post_body)
 
-
 class IntrusionExit(CommonImagesLocation, APIpost):
     def __init__(self, post_body):
         super().__init__(post_body)
-
 
 class LoiteringDetection(CommonImagesLocation, APIpost):
     def __init__(self, post_body):
         super().__init__(post_body)
 
-
 class IllegalParking(CommonImagesLocation, APIpost):
     def __init__(self, post_body):
         super().__init__(post_body)
-
 
 class VideoMetadata(APIpost):
     def __init__(self, post_body):
