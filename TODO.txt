@@ -1,0 +1,3 @@
+This server has been thoroughly tested with Viewtron LPR camera model LPR-IP4.
+
+TODO: Test with other Viewtron AI cameras and events types: human detection, vehicle detection, face detection, face recognition
