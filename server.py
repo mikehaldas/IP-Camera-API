@@ -29,9 +29,12 @@ import time
 # ====================== CONFIG ======================
 SERVER_PORT = 5002
 API_POST_URL = '/API'
-CSV_FILE = '/home/user/API/events.csv'
-IMG_DIR = '/home/user/API/images/'
-RAW_POST_DIR = '/home/user/API/raw_posts/'
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_FILE = os.path.join(BASE_DIR, "events.csv")
+IMG_DIR = os.path.join(BASE_DIR, "images")
+RAW_POST_DIR = os.path.join(BASE_DIR, "raw_posts")
+
 os.makedirs(IMG_DIR, exist_ok=True)
 os.makedirs(RAW_POST_DIR, exist_ok=True)
 
