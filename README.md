@@ -14,3 +14,5 @@ https://www.cctvcamerapros.com/IP-Camera-API-s/1767.htm
 You can find Viewtron IP cameras at https://www.Viewtron.com
 
 Written by Mike Haldas, mike@cctvcamerapros.net
+
+Read INSTALL.md for installation instructions. Tested on Ubbuntu Linix.
