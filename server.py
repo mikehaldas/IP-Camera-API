@@ -15,6 +15,7 @@ Written and maintained by Mike Haldas
 mike@cctvcamerapros.net
 """
 
+from socketserver import ThreadingMixIn
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from datetime import datetime as dt
 from viewtron import *
@@ -129,6 +130,8 @@ class handler(BaseHTTPRequestHandler):
 
             #VT = LPR(text)
             VT = class_lookup[alarm_type]['class'](text)
+            alarm_descript = VT.get_alarm_description()
+            print(f"Alarm Description: {alarm_descript}")
             VT.set_ip_address(client_ip)
             plate = VT.get_plate_number() or "UNKNOWN"
             print(f"PLATE: {plate}")
@@ -150,7 +153,7 @@ class handler(BaseHTTPRequestHandler):
                             print(f" {name} save failed: {e}")
 
             row = [
-                VT.get_ip_cam(), client_ip, "LPR", "License Plate",
+                VT.get_ip_cam(), client_ip, VT.get_alarm_type(), VT.get_alarm_description(),
                 plate, VT.get_time_stamp_formatted(),
                 f"{IMG_DIR}{VT.get_time_stamp()}-target.jpg",
                 f"{IMG_DIR}{VT.get_time_stamp()}-overview.jpg"
@@ -163,15 +166,24 @@ class handler(BaseHTTPRequestHandler):
             print(f"ERROR: {e}")
 
 # ================ START Server ======================
-with HTTPServer(('', SERVER_PORT), handler) as server:
+
+# Make HTTPServer multi-threaded
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True  # allows Ctrl-C to work cleanly
+
+if __name__ == "__main__":
     ip = get_lan_ip()
-    print(f"\nViewtron LPR Server RUNNING... ")
+    server_address = ('', SERVER_PORT)
+    httpd = ThreadedHTTPServer(server_address, handler)
+
+    print(f"\nViewtron LPR Server RUNNING (multi-threaded)")
     print(f"http://{ip}:{SERVER_PORT}{API_POST_URL}")
+    print("Ready to accept events from unlimited cameras simultaneously...\n")
 
     try:
-      threading.Thread(daemon=True).start()
-      server.serve_forever()
+        httpd.serve_forever()
     except KeyboardInterrupt:
         pass
-    server.server_close()
-    print("Server stopped...\n")
+    finally:
+        httpd.server_close()
+        print("Server stopped.")
