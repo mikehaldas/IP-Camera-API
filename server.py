@@ -40,7 +40,7 @@ os.makedirs(IMG_DIR, exist_ok=True)
 os.makedirs(RAW_POST_DIR, exist_ok=True)
 
 # print raw HTTP Posts to files?
-DEBUG_SAVE_RAW = False
+DEBUG_SAVE_RAW = True 
 
 class_lookup = {
     'VEHICE':  {'class': LPR},
@@ -128,13 +128,20 @@ class handler(BaseHTTPRequestHandler):
             if alarm_type not in class_lookup:
                 return
 
-            #VT = LPR(text)
             VT = class_lookup[alarm_type]['class'](text)
             alarm_descript = VT.get_alarm_description()
             print(f"Alarm Description: {alarm_descript}")
             VT.set_ip_address(client_ip)
             plate = VT.get_plate_number() or "UNKNOWN"
             print(f"PLATE: {plate}")
+
+            raw_type = VT.get_vehicle_list_type()
+            print(f"Raw vehicleListType: {raw_type}")
+
+            if VT.is_plate_authorized():
+                print("Plate authorized - open gate")
+            else:
+                print("Plate not authorized")
 
             if VT.images_exist():
                 for get_img, exists, suffix in [
@@ -158,6 +165,7 @@ class handler(BaseHTTPRequestHandler):
                 f"{IMG_DIR}{VT.get_time_stamp()}-target.jpg",
                 f"{IMG_DIR}{VT.get_time_stamp()}-overview.jpg"
             ]
+
             with open(CSV_FILE, 'a', newline='', encoding='utf-8') as f:
                 csv.writer(f).writerow(row)
 
@@ -166,8 +174,6 @@ class handler(BaseHTTPRequestHandler):
             print(f"ERROR: {e}")
 
 # ================ START Server ======================
-
-# Make HTTPServer multi-threaded
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True  # allows Ctrl-C to work cleanly
 
@@ -178,7 +184,7 @@ if __name__ == "__main__":
 
     print(f"\nViewtron LPR Server RUNNING (multi-threaded)")
     print(f"http://{ip}:{SERVER_PORT}{API_POST_URL}")
-    print("Ready to accept events from unlimited cameras simultaneously...\n")
+    print("Ready to accept events from IP cameras...\n")
 
     try:
         httpd.serve_forever()
