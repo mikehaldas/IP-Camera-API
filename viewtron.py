@@ -11,7 +11,6 @@ import xmltodict
 from datetime import datetime as dt
 import base64
 
-
 VT_alarm_types = {
     'MOTION': 'Motion Detection',
     'SENSOR': 'External Sensor',
@@ -34,25 +33,21 @@ VT_alarm_types = {
     'PVD': 'Illegal Parking'
 }
 
-
 class APIpost:
     def __init__(self, post_body, json):
         self.xml = str(post_body)
         self.json = json
         config = json.get('config', {})
-
         # === SAFE PARSING ===
         types = config.get('types', {})
         self.alarm_types = types.get('openAlramObj', {})
         self.target_types = types.get('targetType', {})
-
         device_name = config.get('deviceName', {})
         self.ip_cam = (
             device_name.get('#text') if isinstance(device_name, dict) else
             device_name.get('value') if isinstance(device_name, dict) else
             str(device_name or 'Unknown Camera')
         )
-
         smart_type = config.get('smartType', {})
         self.alarm_type = (
             smart_type.get('#text') if isinstance(smart_type, dict) else
@@ -60,9 +55,7 @@ class APIpost:
             smart_type.get('@type') if isinstance(smart_type, dict) else
             str(smart_type)
         ).strip()
-
         self.alarm_description = VT_alarm_types.get(self.alarm_type, 'Unknown Alarm')
-
         current_time = config.get('currentTime', {})
         time_text = (
             current_time.get('#text') if isinstance(current_time, dict) else
@@ -71,7 +64,7 @@ class APIpost:
         )
         try:
             time_val = int(time_text)
-            if time_val > 1_000_000_000_000:  # milliseconds
+            if time_val > 1_000_000_000_000: # milliseconds
                 time_val = time_val // 1000
             self.time_stamp_formatted = dt.fromtimestamp(time_val)
         except:
@@ -129,6 +122,7 @@ class APIpost:
     def dump_json(self):
         print(self.json)
 
+
 class CommonImagesLocation(APIpost):
     def __init__(self, post_body):
         self.json = xmltodict.parse(post_body)
@@ -136,7 +130,6 @@ class CommonImagesLocation(APIpost):
         list_info = config.get('listInfo', {})
         self.has_source_image = self.has_target_image = False
         self.source_image = self.target_image = ''
-
         if isinstance(list_info, dict) and list_info.get('@count', '0') != '0':
             item = list_info.get('item', {})
             if isinstance(item, list):
@@ -152,7 +145,6 @@ class CommonImagesLocation(APIpost):
                     str(base64_data)
                 ).strip()
                 self.has_target_image = bool(self.target_image)
-
         source_info = config.get('sourceDataInfo', {})
         if source_info:
             base64_data = source_info.get('sourceBase64Data', {})
@@ -162,7 +154,6 @@ class CommonImagesLocation(APIpost):
                 str(base64_data)
             ).strip()
             self.has_source_image = bool(self.source_image)
-
         super().__init__(post_body, self.json)
 
 
@@ -190,6 +181,7 @@ class IllegalParking(CommonImagesLocation, APIpost):
     def __init__(self, post_body):
         super().__init__(post_body)
 
+
 class VideoMetadata(APIpost):
     def __init__(self, post_body):
         self.json = xmltodict.parse(post_body)
@@ -206,7 +198,6 @@ class VideoMetadata(APIpost):
                 str(base64_data)
             ).strip()
             self.has_source_image = bool(self.source_image)
-
         target_data = vsd.get('targetImageData', {})
         length = target_data.get('targetBase64Length', {})
         Parsed_length = length.get('#text', '0') if isinstance(length, dict) else str(length)
@@ -218,7 +209,6 @@ class VideoMetadata(APIpost):
                 str(base64_data)
             ).strip()
             self.has_target_image = bool(self.target_image)
-
         super().__init__(post_body, self.json)
 
 
@@ -226,20 +216,35 @@ class LPR(APIpost):
     def __init__(self, post_body):
         self.json = xmltodict.parse(post_body)
         config = self.json.get('config', {})
+
+        self.vehicleListType = None
         list_info = config.get('listInfo', {})
         items = list_info.get('item', [])
         if not isinstance(items, list):
             items = [items] if items else []
+        if len(items) >= 2:
+            plate_item = items[1]
+        elif len(items) == 1:
+            plate_item = items[0]
+        else:
+            plate_item = None
+
+        # vehicleListType is where whiteList or blackList is specified for authorized license plates
+        if plate_item and isinstance(plate_item, dict):
+            vlt = plate_item.get('vehicleListType')
+            if isinstance(vlt, dict):
+                self.vehicleListType = vlt.get('#text') or vlt.get('value')
+            elif vlt:
+                self.vehicleListType = str(vlt)
+        # ===============================================================================
 
         self.has_source_image = self.has_target_image = False
         self.source_image = self.target_image = ''
         self.plate_number = '<NO PLATE>'
-        self.confidence = 0
 
         for idx, item in enumerate(items):
             if not isinstance(item, dict):
                 continue
-
             # Overview image (item 0)
             if idx == 0:
                 img_data = item.get('targetImageData', {})
@@ -253,7 +258,6 @@ class LPR(APIpost):
                         str(base64_elem)
                     ).strip()
                     self.has_source_image = bool(self.source_image)
-
             # Plate info and image (item 1 or only item)
             if idx == 1 or (idx == 0 and len(items) == 1):
                 plate_num = item.get('plateNumber', {})
@@ -262,14 +266,6 @@ class LPR(APIpost):
                     plate_num.get('value') if isinstance(plate_num, dict) else
                     str(plate_num)
                 ).strip()
-
-                confidence = item.get('confidence', {})
-                try:
-                    self.confidence = int(
-                        confidence.get('#text', '0') if isinstance(confidence, dict) else str(confidence)
-                    )
-                except:
-                    self.confidence = 0
 
                 img_data = item.get('targetImageData', {})
                 length_elem = img_data.get('targetBase64Length', {})
@@ -299,5 +295,13 @@ class LPR(APIpost):
 
         super().__init__(post_body, self.json)
 
-    def get_confidence(self):
-        return self.confidence
+    def get_vehicle_list_type(self):
+        return self.vehicleListType
+
+    def is_plate_authorized(self):
+        list_type = self.get_vehicle_list_type()
+        if self.get_vehicle_list_type() == 'whiteList':
+            return True
+        if self.get_vehicle_list_type() == 'blackList':
+            return False
+        return False
