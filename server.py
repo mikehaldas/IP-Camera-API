@@ -39,8 +39,14 @@ RAW_POST_DIR = os.path.join(BASE_DIR, "raw_posts")
 os.makedirs(IMG_DIR, exist_ok=True)
 os.makedirs(RAW_POST_DIR, exist_ok=True)
 
-# print raw HTTP Posts to files?
-DEBUG_SAVE_RAW = True 
+# save LPR images in IMG_DIR
+SAVE_LPR_IMAGES = True
+
+# print raw HTTP Posts to files for debugging
+DEBUG_SAVE_RAW = False
+
+# print keep alive posts for debugging
+DEBUG_KEEPALIVE = False
 
 class_lookup = {
     'VEHICE':  {'class': LPR},
@@ -89,7 +95,7 @@ class handler(BaseHTTPRequestHandler):
         length = int(self.headers.get('Content-Length', 0))
         client_ip = self.client_address[0]
 
-        if length == 0:
+        if length == 0 and DEBUG_KEEPALIVE:
             print(f"KEEP-ALIVE received from {client_ip} at {dt.now().strftime('%H:%M:%S')}")
             return
 
@@ -123,10 +129,12 @@ class handler(BaseHTTPRequestHandler):
             else:
                 alarm_type = str(st)
             alarm_type = alarm_type.strip()
-            print(f"alarm_type: [{alarm_type}] from {client_ip}")
+            #print(f"alarm_type: [{alarm_type}] from {client_ip}")
 
             if alarm_type not in class_lookup:
                 return
+
+            print(f"alarm_type: [{alarm_type}] from {client_ip}")
 
             VT = class_lookup[alarm_type]['class'](text)
             alarm_descript = VT.get_alarm_description()
@@ -135,15 +143,19 @@ class handler(BaseHTTPRequestHandler):
             plate = VT.get_plate_number() or "UNKNOWN"
             print(f"PLATE: {plate}")
 
-            raw_type = VT.get_vehicle_list_type()
-            print(f"Raw vehicleListType: {raw_type}")
+            #raw_type = VT.get_vehicle_list_type()
+            #print(f"Raw vehicleListType: {raw_type}")
 
+
+            plate_auth = ""
             if VT.is_plate_authorized():
-                print("Plate authorized - open gate")
+                print("Plate is authorized.")
+                plate_auth = "Authorized Plate"
             else:
-                print("Plate not authorized")
+                print("Plate NOT AUTHORIZED!")
+                plate_auth = "Plate NOT Authorized"
 
-            if VT.images_exist():
+            if VT.images_exist() and SAVE_LPR_IMAGES:
                 for get_img, exists, suffix in [
                     (VT.get_source_image, VT.source_image_exists, "overview"),
                     (VT.get_target_image, VT.target_image_exists, "target")
@@ -155,13 +167,13 @@ class handler(BaseHTTPRequestHandler):
                             path = os.path.join(IMG_DIR, name)
                             with open(path, "wb") as f:
                                 f.write(img_data)
-                            print(f" {name} saved")
+                            print(f" {name} saved in {IMG_DIR}")
                         except Exception as e:
                             print(f" {name} save failed: {e}")
 
             row = [
                 VT.get_ip_cam(), client_ip, VT.get_alarm_type(), VT.get_alarm_description(),
-                plate, VT.get_time_stamp_formatted(),
+                plate, plate_auth, VT.get_time_stamp_formatted(),
                 f"{IMG_DIR}{VT.get_time_stamp()}-target.jpg",
                 f"{IMG_DIR}{VT.get_time_stamp()}-overview.jpg"
             ]
@@ -169,7 +181,7 @@ class handler(BaseHTTPRequestHandler):
             with open(CSV_FILE, 'a', newline='', encoding='utf-8') as f:
                 csv.writer(f).writerow(row)
 
-            print(f"SUCCESS: {plate}\n")
+            print(f"Adding record to {CSV_FILE}\n")
         except Exception as e:
             print(f"ERROR: {e}")
 
@@ -182,9 +194,9 @@ if __name__ == "__main__":
     server_address = ('', SERVER_PORT)
     httpd = ThreadedHTTPServer(server_address, handler)
 
-    print(f"\nViewtron LPR Server RUNNING (multi-threaded)")
+    print(f"\nViewtron LPR Camera API Server RUNNING (multi-threaded)")
     print(f"http://{ip}:{SERVER_PORT}{API_POST_URL}")
-    print("Ready to accept events from IP cameras...\n")
+    print("Ready to accept HTTP Posts from IP cameras...\n")
 
     try:
         httpd.serve_forever()
