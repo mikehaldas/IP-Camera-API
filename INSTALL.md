@@ -1,4 +1,4 @@
-# Setup intructions for Viewtron IP Camera API Server
+# Setup intructions for Viewtron IP Camera API Server on Linux
 
 git clone https://github.com/mikehaldas/IP-Camera-API.git
 
@@ -6,7 +6,7 @@ cd IP-Camera-API
 
 python3 -m venv venv
 
-source venv/bin/activate        # Windows: venv\Scripts\activate
+source venv/bin/activate
 
 pip install --upgrade pip
 
