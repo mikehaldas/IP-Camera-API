@@ -1,4 +1,4 @@
-# IP-Camera-API
+# Viewtron IP Camera API Server
 A Python HTTP server to integrate with the HTTP Post / XML API of Viewtron IP cameras.
 
 Viewtron IP cameras have the ability to send an HTTP Post to an external server's webhook end point
@@ -6,6 +6,8 @@ when an alarm event occurs. This is particularly useful with Viewtron AI securit
 AI software alarm events like human detection, car detection, perimeter intrusion detection, line crossing detection,
 face detection / facial recognition, license plate detection / automatic license plate recogition.
 https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
+
+## License Plate Capture Video Demo
 
 [![Watch the Video Demo](https://img.youtube.com/vi/aifIKamg-ls/maxresdefault.jpg)](https://www.youtube.com/watch?v=aifIKamg-ls)
 
