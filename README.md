@@ -7,7 +7,7 @@ AI software alarm events like human detection, car detection, perimeter intrusio
 face detection / facial recognition, license plate detection / automatic license plate recogition.
 https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
 
-[![Watch the video](https://img.youtube.com/vi/aifIKamg-ls/maxresdefault.jpg)]((https://www.youtube.com/watch?v=aifIKamg-ls))
+[![Watch the Video Demo](https://img.youtube.com/vi/aifIKamg-ls/maxresdefault.jpg)](https://www.youtube.com/watch?v=aifIKamg-ls)
 
 Here is video demo of the server recieving HTTP Posts from a Viewtron license plate recognition camera. You can see how the server
 writes the event to CSV log file, saves the licese plate images to a directory, and prints the relevant info to the screen. 
