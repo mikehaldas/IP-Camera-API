@@ -15,13 +15,18 @@ Here is video demo of the server recieving HTTP Posts from a Viewtron license pl
 writes the event to CSV log file, saves the licese plate images to a directory, and prints the relevant info to the screen. 
 The video also shows how to setup the LPR camera's plate detection zone, authorized license plate database, and HTTP Post endpost.
 
-IMPORTANT NOTE: the current version of the server currently only works well with Viewtron LPR cameras / license plate recognition events.
+The current version of the server works well with Viewtron LPR cameras / license plate recognition events.
 It is specifically tested with Viewtron license plate recognition camera model LPR-IP4. It is also important to know
 that license plate recognition events are ONLY supported by Viewtron LPR cameras models.
 https://www.cctvcamerapros.com/LPR-Camera-p/lpr-ip4.htm
 
-I will update the server soon to support Viewtron face detection / facial recognition camera events.
+11/23/2025 Update: The server has been update to support Viewtron face detection / facial recognition camera events. Just like LPR events,
+image snapshot of the full image and a cropped image of the face that was detected can be saved to disk.
 https://www.cctvcamerapros.com/face-recognition-cameras-s/1761.htm
+
+Human detection / perimeter intrusion, vehicle detection / perimeter intrusion are also now supported. You can use any of these Viewtron IP
+cameras for human detection and vehicle detection permiter alarms and line crossing alarms.
+https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
 
 All of the server connection information is configured on the Viewtron IP camera.
 Instructions for IP camera configuration here.
