@@ -20,8 +20,9 @@ It is specifically tested with Viewtron license plate recognition camera model L
 that license plate recognition events are ONLY supported by Viewtron LPR cameras models.
 https://www.cctvcamerapros.com/LPR-Camera-p/lpr-ip4.htm
 
-11/23/2025 Update: The server has been update to support Viewtron face detection / facial recognition camera events. Just like LPR events,
-image snapshot of the full image and a cropped image of the face that was detected can be saved to disk.
+11/23/2025 Update: The server has been updated to support face detection events. Just like LPR events,
+face detection events send a snapshot image and a cropped image of the face that was detected which can be saved to disk. 
+You can find all of the Viewtron IP cameras that support face detection / facial recognition here.
 https://www.cctvcamerapros.com/face-recognition-cameras-s/1761.htm
 
 Human detection / perimeter intrusion, vehicle detection / perimeter intrusion are also now supported. You can use any of these Viewtron IP
