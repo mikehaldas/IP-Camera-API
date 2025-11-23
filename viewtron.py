@@ -156,8 +156,59 @@ class CommonImagesLocation(APIpost):
             self.has_source_image = bool(self.source_image)
         super().__init__(post_body, self.json)
 
+class FaceDetectionImages(APIpost):
+    """
+    Dedicated image extractor for Face Detection (VFD + FEATURE_RESULT) events.
+    Replaces CommonImagesLocation for FaceDetection – images are delivered differently:
+      • Full scene image  → in <sourceDataInfo><sourceBase64Data>
+      • Face crop(s)      → in each <item><targetImageData><targetBase64Data>
+    """
+    def __init__(self, post_body):
+        self.json = xmltodict.parse(post_body)
+        config = self.json.get('config', {})
 
-class FaceDetection(CommonImagesLocation, APIpost):
+        # Reset flags and images
+        self.has_source_image = False
+        self.has_target_image = False
+        self.source_image = ''
+        self.target_image = ''  # will hold only the FIRST face crop (for backward compatibility)
+
+        # 1. Full-scene image (always in sourceDataInfo for VFD)
+        source_info = config.get('sourceDataInfo', {})
+        if source_info:
+            base64_data = source_info.get('sourceBase64Data', {})
+            self.source_image = (
+                base64_data.get('#text') if isinstance(base64_data, dict) else
+                base64_data.get('value') if isinstance(base64_data, dict) else
+                str(base64_data)
+            ).strip()
+            self.has_source_image = bool(self.source_image)
+
+        # 2. Face crops – one or more in listInfo/item
+        list_info = config.get('listInfo', {})
+        items = list_info.get('item', []) if isinstance(list_info, dict) else []
+        if not isinstance(items, list):
+            items = [items] if items else []
+
+        if items:
+            # Use the first face crop as "target_image" to keep APIpost methods working
+            first_item = items[0]
+            if isinstance(first_item, dict):
+                target_data = first_item.get('targetImageData', {})
+                length_elem = target_data.get('targetBase64Length', {})
+                length = length_elem.get('#text', '0') if isinstance(length_elem, dict) else str(length_elem)
+                if length and int(length) > 0:
+                    base64_elem = target_data.get('targetBase64Data', {})
+                    self.target_image = (
+                        base64_elem.get('#text') if isinstance(base64_elem, dict) else
+                        base64_elem.get('value') if isinstance(base64_elem, dict) else
+                        str(base64_elem)
+                    ).strip()
+                    self.has_target_image = bool(self.target_image)
+
+        super().__init__(post_body, self.json)
+
+class FaceDetection(FaceDetectionImages, APIpost):
     def __init__(self, post_body):
         super().__init__(post_body)
 
