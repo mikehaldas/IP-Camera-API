@@ -40,10 +40,10 @@ os.makedirs(IMG_DIR, exist_ok=True)
 os.makedirs(RAW_POST_DIR, exist_ok=True)
 
 # save LPR images in IMG_DIR
-SAVE_LPR_IMAGES = True
+SAVE_IMAGES = True
 
 # print raw HTTP Posts to files for debugging
-DEBUG_SAVE_RAW = False
+DEBUG_SAVE_RAW = True
 
 # print keep alive posts for debugging
 DEBUG_KEEPALIVE = False
@@ -134,28 +134,39 @@ class handler(BaseHTTPRequestHandler):
             if alarm_type not in class_lookup:
                 return
 
+            # The the alarm_type determines which class we need to instantiate
             print(f"alarm_type: [{alarm_type}] from {client_ip}")
-
             VT = class_lookup[alarm_type]['class'](text)
+
+            print(f"Object Alarm Type {VT.get_alarm_type()} object")
             alarm_descript = VT.get_alarm_description()
             print(f"Alarm Description: {alarm_descript}")
             VT.set_ip_address(client_ip)
-            plate = VT.get_plate_number() or "UNKNOWN"
-            print(f"PLATE: {plate}")
 
             #raw_type = VT.get_vehicle_list_type()
             #print(f"Raw vehicleListType: {raw_type}")
 
 
             plate_auth = ""
-            if VT.is_plate_authorized():
-                print("Plate is authorized.")
-                plate_auth = "Authorized Plate"
-            else:
-                print("Plate NOT AUTHORIZED!")
-                plate_auth = "Plate NOT Authorized"
+            if VT.get_alarm_type() in ['VEHICLE', 'VEHICE']:
+                # This is a license plate (LPR) event
+                print("LPR event detected")
+                plate = VT.get_plate_number()
+                print(f"PLATE: {plate}")
 
-            if VT.images_exist() and SAVE_LPR_IMAGES:
+                if VT.is_plate_authorized():
+                    print("Plate is authorized.")
+                    plate_auth = "Authorized Plate"
+                else:
+                    print("Plate NOT AUTHORIZED!")
+                    plate_auth = "Plate NOT Authorized"
+            else:
+                plate_auth = "N/A"
+                plate = "N/A"
+
+            if VT.images_exist() and SAVE_IMAGES:
+
+                print("Post has images.")
                 for get_img, exists, suffix in [
                     (VT.get_source_image, VT.source_image_exists, "overview"),
                     (VT.get_target_image, VT.target_image_exists, "target")
