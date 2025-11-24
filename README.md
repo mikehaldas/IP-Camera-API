@@ -1,10 +1,14 @@
 # Viewtron IP Camera API Server
 A Python HTTP server to integrate with the HTTP Post / XML API of Viewtron IP cameras.
 
-Viewtron IP cameras have the ability to send an HTTP Post to an external server's webhook end point
-when an alarm event occurs. This is particularly useful with Viewtron AI security cameras that support 
-AI software alarm events like human detection, car detection, perimeter intrusion detection, line crossing detection,
-face detection / facial recognition, license plate detection / automatic license plate recogition.
+Viewtron IP cameras have an API for software developers to create custom applications, business automation, and home automation.
+The IP cameras API can send an HTTP Post with an XML payload to an external server's webhook end point.
+The XML payload contains information about the alarm event that the camera detected. This is particularly useful with Viewtron AI security cameras
+that perform AI inference on the camera. Certain Viewtron AI camera models support he following AI detected alarm events:
+license plate detection, automatic license plate recogition, license plate authorized / not authorized database,
+human detection, car detection, perimeter intrusion detection, line crossing detection, face detection / facial recognition.
+
+Please note that only certain models support license plate recongition, face recognition, human and vehicle object detection.
 https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
 
 ## License Plate Capture Video Demo
@@ -15,7 +19,7 @@ Here is video demo of the server recieving HTTP Posts from a Viewtron license pl
 writes the event to CSV log file, saves the licese plate images to a directory, and prints the relevant info to the screen. 
 The video also shows how to setup the LPR camera's plate detection zone, authorized license plate database, and HTTP Post endpost.
 
-The current version of the server works well with Viewtron LPR cameras / license plate recognition events.
+The current version of the server works well in processing Viewtron LPR cameras / license plate recognition events.
 It is specifically tested with Viewtron license plate recognition camera model LPR-IP4. It is also important to know
 that license plate recognition events are ONLY supported by Viewtron LPR cameras models.
 https://www.cctvcamerapros.com/LPR-Camera-p/lpr-ip4.htm
