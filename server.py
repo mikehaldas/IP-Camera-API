@@ -48,6 +48,8 @@ DEBUG_SAVE_RAW = True
 # print keep alive posts for debugging
 DEBUG_KEEPALIVE = False
 
+# the alarm type in the XML Post determined the object class we need to instantiate
+# there is a type on some early camera firmwares for VEHICLE alarms
 class_lookup = {
     'VEHICE':  {'class': LPR},
     'VEHICLE': {'class': LPR},
@@ -72,6 +74,7 @@ def get_lan_ip():
 class handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
+    # Viewtron IP cameras send HTTP Posts but we will put a GET handler here anyway.
     def do_GET(self):
         self.send_response(200)
         self.send_header('Content-Type', 'text/plain')
@@ -95,6 +98,7 @@ class handler(BaseHTTPRequestHandler):
         length = int(self.headers.get('Content-Length', 0))
         client_ip = self.client_address[0]
 
+        # confirm camera is sending Keep Aline posts for debugging
         if length == 0 and DEBUG_KEEPALIVE:
             print(f"KEEP-ALIVE received from {client_ip} at {dt.now().strftime('%H:%M:%S')}")
             return
@@ -102,6 +106,7 @@ class handler(BaseHTTPRequestHandler):
         body = self.rfile.read(length)
         text = body.decode('utf-8', errors='replace')
 
+        # law the raw HTTP Header and Body for debugging
         if DEBUG_SAVE_RAW:
             ts = dt.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-3]
             safe_ip = client_ip.replace('.', '-')
@@ -117,6 +122,7 @@ class handler(BaseHTTPRequestHandler):
             except Exception as e:
                 print(f"SAVE FAILED: {e}")
 
+        # no need to do any further processing if the post does not contain XML data
         if '<?xml' not in text:
             return
 
@@ -129,12 +135,11 @@ class handler(BaseHTTPRequestHandler):
             else:
                 alarm_type = str(st)
             alarm_type = alarm_type.strip()
-            #print(f"alarm_type: [{alarm_type}] from {client_ip}")
 
             if alarm_type not in class_lookup:
                 return
 
-            # The the alarm_type determines which class we need to instantiate
+            # alarm_type in the Post determines which class we need to instantiate
             print(f"alarm_type: [{alarm_type}] from {client_ip}")
             VT = class_lookup[alarm_type]['class'](text)
 
@@ -143,29 +148,24 @@ class handler(BaseHTTPRequestHandler):
             print(f"Alarm Description: {alarm_descript}")
             VT.set_ip_address(client_ip)
 
-            #raw_type = VT.get_vehicle_list_type()
-            #print(f"Raw vehicleListType: {raw_type}")
-
-
-            plate_auth = ""
+            # process license plate recognition events
             if VT.get_alarm_type() in ['VEHICLE', 'VEHICE']:
-                # This is a license plate (LPR) event
-                print("LPR event detected")
+                print("LPR event detected!")
                 plate = VT.get_plate_number()
-                print(f"PLATE: {plate}")
+                print(f"Plate Number: {plate}")
 
                 if VT.is_plate_authorized():
-                    print("Plate is authorized.")
+                    print("Is plate authorized: Yes")
                     plate_auth = "Authorized Plate"
                 else:
-                    print("Plate NOT AUTHORIZED!")
+                    print("Is plate authorized: NO!")
                     plate_auth = "Plate NOT Authorized"
             else:
                 plate_auth = "N/A"
                 plate = "N/A"
 
+            # Does the event contain images and should we save them?
             if VT.images_exist() and SAVE_IMAGES:
-
                 print("Post has images.")
                 for get_img, exists, suffix in [
                     (VT.get_source_image, VT.source_image_exists, "overview"),
@@ -182,6 +182,7 @@ class handler(BaseHTTPRequestHandler):
                         except Exception as e:
                             print(f" {name} save failed: {e}")
 
+            # prepare the new record and add it to the CSV file log
             row = [
                 VT.get_ip_cam(), client_ip, VT.get_alarm_type(), VT.get_alarm_description(),
                 plate, plate_auth, VT.get_time_stamp_formatted(),
