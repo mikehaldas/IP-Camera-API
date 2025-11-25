@@ -35,7 +35,7 @@ Human detection / perimeter intrusion, vehicle detection / perimeter intrusion a
 cameras for human detection and vehicle detection permiter alarms and line crossing alarms.
 https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
 
-## License Plate Capture Video Demo
+## LPR Camera Setup
 
 All of the server connection information is configured on the Viewtron IP camera. You also define the license plate detection zone
 and optionally add plates to the database through the IP camera's web interface. Those instructions can be found here.
