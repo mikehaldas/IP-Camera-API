@@ -35,7 +35,7 @@ https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
 
 All of the server connection information is configured on the Viewtron IP camera.
 Instructions for IP camera configuration here.
-https://www.cctvcamerapros.com/IP-Camera-API-s/1767.htm
+https://videos.cctvcamerapros.com/v/lpr-camera-api.html
 
 You can find all Viewtron security camera system products here.
 https://www.Viewtron.com
