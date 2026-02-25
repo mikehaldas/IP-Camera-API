@@ -60,6 +60,12 @@ class_lookup = {
     'PEA':     {'class': IntrusionDetection}
 }
 
+# NVR v2.0 alarm types (different XML structure than IPC v1.x)
+v2_class_lookup = {
+    'regionIntrusion': {'class': RegionIntrusion},
+    'lineCrossing':    {'class': LineCrossing},
+}
+
 def get_lan_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -129,19 +135,51 @@ class handler(BaseHTTPRequestHandler):
         try:
             data = xmltodict.parse(text)
             config = data.get('config', {})
-            st = config.get('smartType', {})
-            if isinstance(st, dict):
-                alarm_type = st.get('#text') or st.get('value') or st.get('@type') or ''
+            version = config.get('@version', '')
+
+            # === NVR v2.0 FORMAT ===
+            if version.startswith('2'):
+                msg_type = str(config.get('messageType', '')).strip()
+
+                if msg_type == 'keepalive':
+                    device_info = config.get('deviceInfo', {})
+                    dev_ip = device_info.get('ip', client_ip)
+                    print(f"v2.0 KEEPALIVE from {dev_ip} at {dt.now().strftime('%H:%M:%S')}")
+                    return
+
+                if msg_type == 'alarmStatus':
+                    device_info = config.get('deviceInfo', {})
+                    ch = device_info.get('channelId', '?')
+                    status_info = config.get('alarmStatusInfo', {})
+                    print(f"v2.0 ALARM STATUS ch{ch} from {client_ip}: {status_info}")
+                    return
+
+                if msg_type == 'alarmData':
+                    smart_type = str(config.get('smartType', '')).strip()
+                    if smart_type not in v2_class_lookup:
+                        print(f"v2.0 unknown smartType: [{smart_type}] from {client_ip}")
+                        return
+                    print(f"v2.0 alarm_type: [{smart_type}] from {client_ip}")
+                    VT = v2_class_lookup[smart_type]['class'](text)
+                else:
+                    print(f"v2.0 unknown messageType: [{msg_type}] from {client_ip}")
+                    return
+
+            # === IPC v1.x FORMAT ===
             else:
-                alarm_type = str(st)
-            alarm_type = alarm_type.strip()
+                st = config.get('smartType', {})
+                if isinstance(st, dict):
+                    alarm_type = st.get('#text') or st.get('value') or st.get('@type') or ''
+                else:
+                    alarm_type = str(st)
+                alarm_type = alarm_type.strip()
 
-            if alarm_type not in class_lookup:
-                return
+                if alarm_type not in class_lookup:
+                    return
 
-            # alarm_type in the Post determines which class we need to instantiate
-            print(f"alarm_type: [{alarm_type}] from {client_ip}")
-            VT = class_lookup[alarm_type]['class'](text)
+                # alarm_type in the Post determines which class we need to instantiate
+                print(f"alarm_type: [{alarm_type}] from {client_ip}")
+                VT = class_lookup[alarm_type]['class'](text)
 
             print(f"Object Alarm Type {VT.get_alarm_type()} object")
             alarm_descript = VT.get_alarm_description()

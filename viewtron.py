@@ -356,3 +356,151 @@ class LPR(APIpost):
         if self.get_vehicle_list_type() == 'blackList':
             return False
         return False
+
+
+# ====================== NVR v2.0 FORMAT ======================
+# NVRs send a completely different XML structure than IPC v1.x cameras.
+# v2.0 uses: messageType, deviceInfo (ip/mac/channelId), microsecond timestamps,
+# sourceDataInfo for overview images, and targetListInfo for target crops.
+# These classes expose the SAME method interface as APIpost so server.py
+# can process both versions with the same image saving / CSV logging code.
+
+VT_alarm_types_v2 = {
+    'regionIntrusion': 'Perimeter Intrusion',
+    'lineCrossing': 'Line Crossing',
+}
+
+class APIpostV2:
+    """Base class for NVR v2.0 HTTP Posts."""
+    def __init__(self, post_body, json):
+        self.xml = str(post_body)
+        self.json = json
+        config = json.get('config', {})
+
+        # === DEVICE INFO ===
+        device_info = config.get('deviceInfo', {})
+        device_name = device_info.get('deviceName', 'Unknown Camera')
+        # CDATA values come through as plain strings in xmltodict
+        self.ip_cam = str(device_name) if device_name else 'Unknown Camera'
+        self.device_ip = str(device_info.get('ip', ''))
+        self.device_mac = str(device_info.get('mac', ''))
+        self.channel_id = str(device_info.get('channelId', ''))
+
+        # === ALARM TYPE ===
+        self.alarm_type = str(config.get('smartType', '')).strip()
+        self.alarm_description = VT_alarm_types_v2.get(self.alarm_type, 'Unknown Alarm')
+
+        # === TIMESTAMP (microseconds) ===
+        current_time = config.get('currentTime', '')
+        try:
+            time_val = int(current_time)
+            if time_val > 1_000_000_000_000_000:  # microseconds
+                time_val = time_val // 1_000_000
+            elif time_val > 1_000_000_000_000:  # milliseconds
+                time_val = time_val // 1000
+            self.time_stamp_formatted = dt.fromtimestamp(time_val)
+        except:
+            self.time_stamp_formatted = dt.now()
+
+        # === IMAGES ===
+        self.has_source_image = False
+        self.has_target_image = False
+        self.source_image = ''
+        self.target_image = ''
+
+        # Overview / scene image in sourceDataInfo
+        source_info = config.get('sourceDataInfo', {})
+        if source_info:
+            length = source_info.get('sourceBase64Length', '0')
+            if isinstance(length, dict):
+                length = length.get('#text', '0')
+            if length and int(length) > 0:
+                base64_data = source_info.get('sourceBase64Data', '')
+                if isinstance(base64_data, dict):
+                    base64_data = base64_data.get('#text', '') or base64_data.get('value', '')
+                self.source_image = str(base64_data).strip()
+                self.has_source_image = bool(self.source_image)
+
+        # Target crop in targetListInfo (first item only, like v1.x)
+        target_list = config.get('targetListInfo', {})
+        items = target_list.get('item', []) if isinstance(target_list, dict) else []
+        if not isinstance(items, list):
+            items = [items] if items else []
+        if items:
+            first_item = items[0]
+            if isinstance(first_item, dict):
+                target_data = first_item.get('targetImageData', {})
+                length = target_data.get('targetBase64Length', '0')
+                if isinstance(length, dict):
+                    length = length.get('#text', '0')
+                if length and int(length) > 0:
+                    base64_data = target_data.get('targetBase64Data', '')
+                    if isinstance(base64_data, dict):
+                        base64_data = base64_data.get('#text', '') or base64_data.get('value', '')
+                    self.target_image = str(base64_data).strip()
+                    self.has_target_image = bool(self.target_image)
+
+    # === SAME INTERFACE AS APIpost ===
+    def set_ip_address(self, ip_address):
+        self.ip_address = ip_address
+        return 1
+
+    def get_ip_address(self):
+        return getattr(self, 'ip_address', 'Unknown')
+
+    def get_alarm_type(self):
+        return self.alarm_type
+
+    def get_alarm_description(self):
+        return self.alarm_description
+
+    def get_ip_cam(self):
+        return self.ip_cam
+
+    def get_time_stamp(self):
+        return str(int(dt.now().timestamp()))
+
+    def get_time_stamp_formatted(self):
+        return str(self.time_stamp_formatted)
+
+    def get_plate_number(self):
+        return '<NO PLATE EXISTS>'
+
+    def is_plate_authorized(self):
+        return False
+
+    def source_image_exists(self):
+        return self.has_source_image and bool(self.source_image)
+
+    def target_image_exists(self):
+        return self.has_target_image and bool(self.target_image)
+
+    def images_exist(self):
+        return self.source_image_exists() or self.target_image_exists()
+
+    def get_source_image(self):
+        return self.source_image if self.source_image_exists() else None
+
+    def get_target_image(self):
+        return self.target_image if self.target_image_exists() else None
+
+    def get_channel_id(self):
+        return self.channel_id
+
+    def dump_xml(self):
+        print(self.xml)
+
+    def dump_json(self):
+        print(self.json)
+
+
+class RegionIntrusion(APIpostV2):
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+
+
+class LineCrossing(APIpostV2):
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
