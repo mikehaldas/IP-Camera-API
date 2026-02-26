@@ -368,6 +368,9 @@ class LPR(APIpost):
 VT_alarm_types_v2 = {
     'regionIntrusion': 'Perimeter Intrusion',
     'lineCrossing': 'Line Crossing',
+    'targetCountingByLine': 'Target Counting by Line',
+    'targetCountingByArea': 'Target Counting by Area',
+    'videoMetadata': 'Video Metadata',
 }
 
 class APIpostV2:
@@ -501,6 +504,24 @@ class RegionIntrusion(APIpostV2):
 
 
 class LineCrossing(APIpostV2):
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+
+
+class TargetCountingByLine(APIpostV2):
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+
+
+class TargetCountingByArea(APIpostV2):
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+
+
+class VideoMetadataV2(APIpostV2):
     def __init__(self, post_body):
         json = xmltodict.parse(post_body)
         super().__init__(post_body, json)

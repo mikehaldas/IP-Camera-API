@@ -62,8 +62,11 @@ class_lookup = {
 
 # NVR v2.0 alarm types (different XML structure than IPC v1.x)
 v2_class_lookup = {
-    'regionIntrusion': {'class': RegionIntrusion},
-    'lineCrossing':    {'class': LineCrossing},
+    'regionIntrusion':       {'class': RegionIntrusion},
+    'lineCrossing':          {'class': LineCrossing},
+    'targetCountingByLine':  {'class': TargetCountingByLine},
+    'targetCountingByArea':  {'class': TargetCountingByArea},
+    'videoMetadata':         {'class': VideoMetadataV2},
 }
 
 def get_lan_ip():
