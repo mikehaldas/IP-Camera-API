@@ -24,10 +24,24 @@ It is specifically tested with Viewtron license plate recognition camera model L
 that license plate recognition events are ONLY supported by Viewtron LPR cameras models.
 https://www.cctvcamerapros.com/LPR-Camera-p/lpr-ip4.htm
 
+## NVR v2.0 Support (February 2026)
+
+The server now supports HTTP Posts from both **IP Cameras (v1.x)** and **NVRs (v2.0)**.
+
+When cameras connect to an NVR's built-in PoE ports, the NVR can forward AI detection events to your server. The NVR uses a different XML format (v2.0) than direct IP camera posts, but this server handles both automatically - your code doesn't need to handle the differences.
+
+**Supported NVR detection types:**
+- `regionIntrusion` - Perimeter intrusion (person/vehicle enters zone)
+- `lineCrossing` - Tripwire / line crossing detection
+
+**Documentation:**
+- [NVR Setup Guide](https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks) - How to configure NVR HTTP Post webhooks
+- [NVR API Detection Events](https://videos.cctvcamerapros.com/support/topic/nvr-webhook-api-ai-events) - NVR v2.0 XML format reference
+
 ## Update to Support Face Detection, Human Detection, Vehicle Detection
 
 11/23/2025 Update: The server has been updated to support face detection events. Just like LPR events,
-face detection events send a snapshot image and a cropped image of the face that was detected which can be saved to disk. 
+face detection events send a snapshot image and a cropped image of the face that was detected which can be saved to disk.
 You can find all of the Viewtron IP cameras that support face detection / facial recognition here.
 https://www.cctvcamerapros.com/face-recognition-cameras-s/1761.htm
 
