@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IPC v1.x: VEHICE / VEHICLE (License Plate Recognition)
+     Sent directly by the IP camera when a license plate is detected.
+     NVR v2.0 equivalent: vehicle
+     alarmStatus field: vehiceAlarm
+
+     Fields:
+       plateNumber — the detected plate text
+       vehicleListType — whiteList or blackList (authorized plate database)
+       listInfo/item[0] — overview image
+       listInfo/item[1] — plate info + plate crop image
+
+     Note: Some firmware versions spell it VEHICE (typo), others VEHICLE. -->
+<config version="1.7" xmlns="http://www.ipc.com/ver10">
+    <smartType type="openAlramObj">VEHICE</smartType>
+    <subscribeRelation type="subscribeOption">FEATURE_RESULT</subscribeRelation>
+    <currentTime type="tint64">1732045234584193</currentTime>
+    <types>
+        <openAlramObj type="string">VEHICE,VFD_MATCH,PEA,VFD,VSD,AOIENTRY,AOILEAVE,PASSLINECOUNT,TRAFFIC</openAlramObj>
+        <targetType type="string">1,2,4</targetType>
+    </types>
+    <listInfo type="list" count="2">
+        <item>
+            <targetImageData>
+                <dataType type="uint32">0</dataType>
+                <targetType type="uint32">2</targetType>
+                <Width type="tuint32">1920</Width>
+                <Height type="tuint32">1080</Height>
+                <targetBase64Length type="uint32">161438</targetBase64Length>
+                <targetBase64Data type="string"><![CDATA[BASE64_JPEG_OVERVIEW_IMAGE]]></targetBase64Data>
+            </targetImageData>
+        </item>
+        <item>
+            <plateNumber type="string"><![CDATA[ABC1234]]></plateNumber>
+            <vehicleListType type="string">whiteList</vehicleListType>
+            <targetImageData>
+                <dataType type="uint32">0</dataType>
+                <targetType type="uint32">2</targetType>
+                <Width type="tuint32">150</Width>
+                <Height type="tuint32">50</Height>
+                <targetBase64Length type="uint32">3200</targetBase64Length>
+                <targetBase64Data type="string"><![CDATA[BASE64_JPEG_PLATE_CROP]]></targetBase64Data>
+            </targetImageData>
+        </item>
+    </listInfo>
+    <sourceDataInfo>
+        <dataType type="uint32">0</dataType>
+        <width type="uint32">1920</width>
+        <height type="uint32">1080</height>
+        <sourceBase64Length type="uint32">161438</sourceBase64Length>
+        <sourceBase64Data type="string"><![CDATA[BASE64_JPEG_SOURCE_IMAGE]]></sourceBase64Data>
+    </sourceDataInfo>
+</config>

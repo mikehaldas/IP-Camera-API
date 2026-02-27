@@ -371,6 +371,8 @@ VT_alarm_types_v2 = {
     'targetCountingByLine': 'Target Counting by Line',
     'targetCountingByArea': 'Target Counting by Area',
     'videoMetadata': 'Video Metadata',
+    'vehicle': 'License Plate Detection',
+    'videoFaceDetect': 'Face Detection',
 }
 
 class APIpostV2:
@@ -525,3 +527,141 @@ class VideoMetadataV2(APIpostV2):
     def __init__(self, post_body):
         json = xmltodict.parse(post_body)
         super().__init__(post_body, json)
+
+
+class VehicleLPR(APIpostV2):
+    """NVR v2.0 License Plate Recognition (smartType: vehicle).
+
+    Uses a completely different XML structure from other v2.0 alarm types:
+    - licensePlateListInfo instead of eventInfo + targetListInfo
+    - Plate number in licensePlateAttribute/licensePlateNumber
+    - Vehicle attributes: carType, color, brand, model
+    - Target image is a plate crop inside licensePlateListInfo/item/targetImageData
+    """
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+        config = json.get('config', {})
+
+        self.plate_number = '<NO PLATE>'
+        self.plate_color = ''
+        self.car_type = ''
+        self.car_color = ''
+        self.car_brand = ''
+        self.car_model = ''
+
+        # Parse licensePlateListInfo
+        plate_list = config.get('licensePlateListInfo', {})
+        items = plate_list.get('item', []) if isinstance(plate_list, dict) else []
+        if not isinstance(items, list):
+            items = [items] if items else []
+
+        if items:
+            first_item = items[0]
+            if isinstance(first_item, dict):
+                # Plate number and color
+                plate_attr = first_item.get('licensePlateAttribute', {})
+                if plate_attr:
+                    plate_num = plate_attr.get('licensePlateNumber', '')
+                    self.plate_number = str(plate_num).strip() if plate_num else '<NO PLATE>'
+                    self.plate_color = str(plate_attr.get('color', '')).strip()
+
+                # Vehicle attributes
+                car_attr = first_item.get('carAttribute', {})
+                if car_attr:
+                    self.car_type = str(car_attr.get('carType', '')).strip()
+                    self.car_color = str(car_attr.get('color', '')).strip()
+                    self.car_brand = str(car_attr.get('brand', '')).strip()
+                    self.car_model = str(car_attr.get('model', '')).strip()
+
+                # Plate crop image (inside licensePlateListInfo, not targetListInfo)
+                target_data = first_item.get('targetImageData', {})
+                if target_data:
+                    length = target_data.get('targetBase64Length', '0')
+                    if isinstance(length, dict):
+                        length = length.get('#text', '0')
+                    if length and int(length) > 0:
+                        base64_data = target_data.get('targetBase64Data', '')
+                        if isinstance(base64_data, dict):
+                            base64_data = base64_data.get('#text', '') or base64_data.get('value', '')
+                        self.target_image = str(base64_data).strip()
+                        self.has_target_image = bool(self.target_image)
+
+    def get_plate_number(self):
+        return self.plate_number
+
+    def get_plate_color(self):
+        return self.plate_color
+
+    def get_car_type(self):
+        return self.car_type
+
+    def get_car_color(self):
+        return self.car_color
+
+    def get_car_brand(self):
+        return self.car_brand
+
+    def get_car_model(self):
+        return self.car_model
+
+    def is_plate_authorized(self):
+        return False  # NVR v2.0 does not include whiteList/blackList
+
+
+class FaceDetectionV2(APIpostV2):
+    """NVR v2.0 Face Detection (smartType: videoFaceDetect).
+
+    Uses faceListInfo instead of eventInfo + targetListInfo.
+    Each face item includes attributes: age, sex, glasses, mask.
+    Target image is a square face crop inside faceListInfo/item/targetImageData.
+    """
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+        config = json.get('config', {})
+
+        self.face_age = ''
+        self.face_sex = ''
+        self.face_glasses = ''
+        self.face_mask = ''
+
+        # Parse faceListInfo
+        face_list = config.get('faceListInfo', {})
+        items = face_list.get('item', []) if isinstance(face_list, dict) else []
+        if not isinstance(items, list):
+            items = [items] if items else []
+
+        if items:
+            first_item = items[0]
+            if isinstance(first_item, dict):
+                # Face attributes
+                self.face_age = str(first_item.get('age', '')).strip()
+                self.face_sex = str(first_item.get('sex', '')).strip()
+                self.face_glasses = str(first_item.get('glasses', '')).strip()
+                self.face_mask = str(first_item.get('mask', '')).strip()
+
+                # Face crop image (inside faceListInfo, not targetListInfo)
+                target_data = first_item.get('targetImageData', {})
+                if target_data:
+                    length = target_data.get('targetBase64Length', '0')
+                    if isinstance(length, dict):
+                        length = length.get('#text', '0')
+                    if length and int(length) > 0:
+                        base64_data = target_data.get('targetBase64Data', '')
+                        if isinstance(base64_data, dict):
+                            base64_data = base64_data.get('#text', '') or base64_data.get('value', '')
+                        self.target_image = str(base64_data).strip()
+                        self.has_target_image = bool(self.target_image)
+
+    def get_face_age(self):
+        return self.face_age
+
+    def get_face_sex(self):
+        return self.face_sex
+
+    def get_face_glasses(self):
+        return self.face_glasses
+
+    def get_face_mask(self):
+        return self.face_mask

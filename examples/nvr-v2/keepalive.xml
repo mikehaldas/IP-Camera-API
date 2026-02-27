@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NVR v2.0: keepalive
+     Heartbeat sent periodically by the NVR. No alarm data, no images.
+     Used to confirm the connection between NVR and server is alive.
+     Note: No channelId in keepalive messages. -->
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>keepalive</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Office]]></deviceName>
+        <ip><![CDATA[192.168.0.50]]></ip>
+        <mac><![CDATA[58:5B:69:12:F0:79]]></mac>
+    </deviceInfo>
+</config>

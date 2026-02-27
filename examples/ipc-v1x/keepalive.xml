@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IPC v1.x: Keepalive
+     Heartbeat sent periodically by the IP camera. No alarm data, no images.
+     Note: IPC keepalive uses a DeviceInfo root element (not <config>).
+     Fields include device serial number (SN) which the NVR keepalive does not have. -->
+<DeviceInfo>
+    <DeviceName>Device Name</DeviceName>
+    <DeviceNo.>1</DeviceNo.>
+    <SN><![CDATA[NF40D099BCM0]]></SN>
+    <ipAddress>192.168.1.192</ipAddress>
+    <macAddress>58:5b:69:5a:84:bb</macAddress>
+</DeviceInfo>

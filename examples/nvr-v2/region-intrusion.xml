@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NVR v2.0: regionIntrusion (Perimeter Intrusion)
+     Sent when a person or vehicle enters a defined intrusion zone.
+     IPC v1.x equivalent: PEA (with <perimeter> block)
+     alarmStatus field: perimeterAlarm -->
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmData</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Device Name]]></deviceName>
+        <ip><![CDATA[192.168.0.60]]></ip>
+        <mac><![CDATA[58:5B:69:40:F4:0D]]></mac>
+        <channelId>1</channelId>
+    </deviceInfo>
+    <smartType>regionIntrusion</smartType>
+    <currentTime>1772056914604000</currentTime>
+    <eventInfo>
+        <item>
+            <eventId>916</eventId>
+            <targetId>716</targetId>
+            <boundary>area</boundary>
+            <pointGroup>
+                <item><x>1590</x><y>3080</y></item>
+                <item><x>4715</x><y>3181</y></item>
+                <item><x>4772</x><y>9217</y></item>
+                <item><x>416</x><y>9141</y></item>
+            </pointGroup>
+            <rect>
+                <x1>3096</x1><y1>3715</y1>
+                <x2>4005</x2><y2>9861</y2>
+            </rect>
+        </item>
+    </eventInfo>
+    <sourceDataInfo>
+        <dataType>0</dataType>
+        <width>1280</width>
+        <height>720</height>
+        <sourceBase64Length>400924</sourceBase64Length>
+        <sourceBase64Data>BASE64_JPEG_OVERVIEW_IMAGE</sourceBase64Data>
+    </sourceDataInfo>
+    <targetListInfo>
+        <item>
+            <targetId>716</targetId>
+            <targetType>person</targetType>
+            <targetImageData>
+                <dataType>0</dataType>
+                <width>336</width>
+                <height>448</height>
+                <targetBase64Length>78796</targetBase64Length>
+                <targetBase64Data>BASE64_JPEG_TARGET_CROP</targetBase64Data>
+            </targetImageData>
+        </item>
+    </targetListInfo>
+</config>

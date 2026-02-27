@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IPC v1.x: PEA — Line Crossing / Tripwire
+     Sent directly by the IP camera when a person or vehicle crosses a tripwire.
+     NVR v2.0 equivalent: lineCrossing
+     alarmStatus field: tripwireAlarm
+
+     Note: PEA handles BOTH intrusion and line crossing. This example shows tripwire.
+     The tripwire/tripInfo block contains the tripwire line definition.
+     targetType: 1=person, 2=car, 4=bike -->
+<config version="1.7" xmlns="http://www.ipc.com/ver10">
+    <smartType type="openAlramObj">PEA</smartType>
+    <subscribeRelation type="subscribeOption">FEATURE_RESULT</subscribeRelation>
+    <currentTime type="tint64">1563528106584193</currentTime>
+    <types>
+        <openAlramObj type="string">VEHICE,VFD_MATCH,PEA,VFD,VSD,AOIENTRY,AOILEAVE,PASSLINECOUNT,TRAFFIC</openAlramObj>
+        <targetType type="string">1,2,4</targetType>
+    </types>
+    <tripwire>
+        <tripInfo type="list" count="1">
+            <item>
+                <eventId type="uint32">320</eventId>
+                <targetId type="uint32">30</targetId>
+                <status type="smartStatus">SMART_START</status>
+                <line>
+                    <startPoint><x type="uint32">5000</x><y type="uint32">1000</y></startPoint>
+                    <endPoint><x type="uint32">5000</x><y type="uint32">9000</y></endPoint>
+                </line>
+                <rect>
+                    <x1 type="uint32">3200</x1><y1 type="uint32">2100</y1>
+                    <x2 type="uint32">4800</x2><y2 type="uint32">8500</y2>
+                </rect>
+            </item>
+        </tripInfo>
+    </tripwire>
+    <sourceDataInfo>
+        <dataType type="uint32">0</dataType>
+        <width type="uint32">1920</width>
+        <height type="uint32">1080</height>
+        <sourceBase64Length type="uint32">161438</sourceBase64Length>
+        <sourceBase64Data type="string"><![CDATA[BASE64_JPEG_OVERVIEW_IMAGE]]></sourceBase64Data>
+    </sourceDataInfo>
+    <listInfo type="list" count="1">
+        <item>
+            <targetId type="tuint32">30</targetId>
+            <rect>
+                <x1 type="uint32">3200</x1><y1 type="uint32">2100</y1>
+                <x2 type="uint32">4800</x2><y2 type="uint32">8500</y2>
+            </rect>
+            <targetImageData>
+                <dataType type="uint32">0</dataType>
+                <targetType type="uint32">1</targetType>
+                <Width type="tuint32">960</Width>
+                <Height type="tuint32">1080</Height>
+                <targetBase64Length type="uint32">95000</targetBase64Length>
+                <targetBase64Data type="string"><![CDATA[BASE64_JPEG_TARGET_CROP]]></targetBase64Data>
+            </targetImageData>
+        </item>
+    </listInfo>
+</config>

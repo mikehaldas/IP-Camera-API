@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IPC v1.x: PEA — Perimeter Intrusion
+     Sent directly by the IP camera when a person or vehicle enters an intrusion zone.
+     NVR v2.0 equivalent: regionIntrusion
+     alarmStatus field: perimeterAlarm
+
+     Note: PEA handles BOTH intrusion and line crossing. This example shows intrusion.
+     The perimeter/perInfo block contains the intrusion zone polygon.
+     targetType: 1=person, 2=car, 4=bike -->
+<config version="1.7" xmlns="http://www.ipc.com/ver10">
+    <smartType type="openAlramObj">PEA</smartType>
+    <subscribeRelation type="subscribeOption">FEATURE_RESULT</subscribeRelation>
+    <currentTime type="tint64">1563528106584193</currentTime>
+    <types>
+        <openAlramObj type="string">VEHICE,VFD_MATCH,PEA,VFD,VSD,AOIENTRY,AOILEAVE,PASSLINECOUNT,TRAFFIC</openAlramObj>
+        <targetType type="string">1,2,4</targetType>
+    </types>
+    <perimeter>
+        <perInfo type="list" count="1">
+            <item>
+                <eventId type="uint32">220</eventId>
+                <targetId type="uint32">20</targetId>
+                <status type="smartStatus">SMART_START</status>
+                <boundary type="list" count="4">
+                    <item><point><x type="uint32">1625</x><y type="uint32">2133</y></point></item>
+                    <item><point><x type="uint32">1725</x><y type="uint32">8800</y></point></item>
+                    <item><point><x type="uint32">7900</x><y type="uint32">8900</y></point></item>
+                    <item><point><x type="uint32">7800</x><y type="uint32">2200</y></point></item>
+                </boundary>
+                <rect>
+                    <x1 type="uint32">113</x1><y1 type="uint32">0</y1>
+                    <x2 type="uint32">5511</x2><y2 type="uint32">8472</y2>
+                </rect>
+            </item>
+        </perInfo>
+    </perimeter>
+    <sourceDataInfo>
+        <dataType type="uint32">0</dataType>
+        <width type="uint32">1920</width>
+        <height type="uint32">1080</height>
+        <sourceBase64Length type="uint32">161438</sourceBase64Length>
+        <sourceBase64Data type="string"><![CDATA[BASE64_JPEG_OVERVIEW_IMAGE]]></sourceBase64Data>
+    </sourceDataInfo>
+    <listInfo type="list" count="1">
+        <item>
+            <targetId type="tuint32">20</targetId>
+            <rect>
+                <x1 type="uint32">113</x1><y1 type="uint32">0</y1>
+                <x2 type="uint32">5511</x2><y2 type="uint32">8472</y2>
+            </rect>
+            <targetImageData>
+                <dataType type="uint32">0</dataType>
+                <targetType type="uint32">1</targetType>
+                <Width type="tuint32">1276</Width>
+                <Height type="tuint32">1080</Height>
+                <targetBase64Length type="uint32">100774</targetBase64Length>
+                <targetBase64Data type="string"><![CDATA[BASE64_JPEG_TARGET_CROP]]></targetBase64Data>
+            </targetImageData>
+        </item>
+    </listInfo>
+</config>

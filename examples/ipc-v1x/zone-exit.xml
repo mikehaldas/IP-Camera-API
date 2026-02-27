@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IPC v1.x: AOILEAVE (Zone Exit / Region Exit)
+     Sent directly by the IP camera when an object exits a defined zone.
+     NVR v2.0 equivalent: not yet tested
+     alarmStatus field: not documented
+     targetType: 1=person, 2=car, 4=bike -->
+<config version="1.7" xmlns="http://www.ipc.com/ver10">
+    <smartType type="openAlramObj">AOILEAVE</smartType>
+    <subscribeRelation type="subscribeOption">FEATURE_RESULT</subscribeRelation>
+    <currentTime type="tint64">1732045234584193</currentTime>
+    <types>
+        <openAlramObj type="string">VEHICE,VFD_MATCH,PEA,VFD,VSD,AOIENTRY,AOILEAVE,PASSLINECOUNT,TRAFFIC</openAlramObj>
+        <targetType type="string">1,2,4</targetType>
+    </types>
+    <sourceDataInfo>
+        <dataType type="uint32">0</dataType>
+        <width type="uint32">1920</width>
+        <height type="uint32">1080</height>
+        <sourceBase64Length type="uint32">161438</sourceBase64Length>
+        <sourceBase64Data type="string"><![CDATA[BASE64_JPEG_OVERVIEW_IMAGE]]></sourceBase64Data>
+    </sourceDataInfo>
+    <listInfo type="list" count="1">
+        <item>
+            <targetId type="tuint32">45</targetId>
+            <rect>
+                <x1 type="uint32">6000</x1><y1 type="uint32">3000</y1>
+                <x2 type="uint32">8000</x2><y2 type="uint32">8000</y2>
+            </rect>
+            <targetImageData>
+                <dataType type="uint32">0</dataType>
+                <targetType type="uint32">2</targetType>
+                <Width type="tuint32">500</Width>
+                <Height type="tuint32">800</Height>
+                <targetBase64Length type="uint32">80000</targetBase64Length>
+                <targetBase64Data type="string"><![CDATA[BASE64_JPEG_TARGET_CROP]]></targetBase64Data>
+            </targetImageData>
+        </item>
+    </listInfo>
+</config>

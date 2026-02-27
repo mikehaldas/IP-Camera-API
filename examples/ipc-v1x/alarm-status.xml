@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IPC v1.x: alarmStatus
+     Lightweight notification sent when an alarm starts (true) or stops (false).
+     No images. Uses a formatted date string instead of Unix timestamp.
+
+     The alarm field name varies by detection type:
+       vehiceAlarm    — VEHICE / VEHICLE (LPR)
+       VFDAlarm       — VFD (face detection)
+       perimeterAlarm — PEA (intrusion)
+       tripwireAlarm  — PEA (line crossing)
+       motionAlarm    — MOTION
+
+     Key differences from NVR v2.0 alarmStatus:
+       - No messageType field
+       - Uses dataTime (formatted date) instead of currentTime (Unix microseconds)
+       - Uses ipAddress/macAddress instead of ip/mac
+       - Includes sn (serial number)
+       - Alarm field uses type="boolean" attribute -->
+
+<!-- Example: LPR alarm status -->
+<config version="1.7" xmlns="http://www.ipc.com/ver10">
+    <alarmStatusInfo>
+        <vehiceAlarm type="boolean" id="1">true</vehiceAlarm>
+    </alarmStatusInfo>
+    <dataTime><![CDATA[11-19-2025 12:15:11 PM]]></dataTime>
+    <deviceInfo>
+        <deviceName><![CDATA[Viewtron IPC]]></deviceName>
+        <deviceNo.><![CDATA[1]]></deviceNo.>
+        <sn><![CDATA[I84BB0A8D59C]]></sn>
+        <ipAddress><![CDATA[192.168.1.57]]></ipAddress>
+        <macAddress><![CDATA[58:5b:69:5a:84:bb]]></macAddress>
+    </deviceInfo>
+</config>

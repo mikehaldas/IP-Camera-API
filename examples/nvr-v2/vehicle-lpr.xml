@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NVR v2.0: vehicle (License Plate Recognition)
+     Sent when a license plate is detected and read.
+     IPC v1.x equivalent: VEHICE / VEHICLE
+     alarmStatus: None observed.
+
+     IMPORTANT: This alarm type uses a completely different XML structure
+     from all other v2.0 types. It uses licensePlateListInfo instead of
+     eventInfo + targetListInfo.
+
+     Fields:
+       licensePlateAttribute/licensePlateNumber — the detected plate text
+       licensePlateAttribute/color — plate color
+       carAttribute/carType — vehicle classification (mpv, sedan, suv, etc.)
+       carAttribute/color — vehicle color
+       carAttribute/brand — vehicle brand (GMC, Toyota, Ford, etc.)
+       carAttribute/model — vehicle model (GMC_SAVANA, etc.)
+       rect — plate bounding box
+       carRect — vehicle bounding box (may be all zeros)
+       targetImageData — cropped plate image (typically 128x64) -->
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmData</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Device Name]]></deviceName>
+        <ip><![CDATA[192.168.0.60]]></ip>
+        <mac><![CDATA[58:5B:69:40:F4:0D]]></mac>
+        <channelId>2</channelId>
+    </deviceInfo>
+    <smartType>vehicle</smartType>
+    <currentTime>1772210268473000</currentTime>
+    <sourceDataInfo>
+        <dataType>0</dataType>
+        <width>0</width>
+        <height>0</height>
+        <sourceBase64Length>483768</sourceBase64Length>
+        <sourceBase64Data>BASE64_JPEG_OVERVIEW_IMAGE</sourceBase64Data>
+    </sourceDataInfo>
+    <licensePlateListInfo>
+        <item>
+            <targetId>104</targetId>
+            <rect>
+                <x1>1104</x1><y1>546</y1>
+                <x2>1232</x2><y2>610</y2>
+            </rect>
+            <licensePlateAttribute>
+                <licensePlateNumber><![CDATA[JP116D]]></licensePlateNumber>
+                <color>white</color>
+            </licensePlateAttribute>
+            <carRect>
+                <x1>1</x1><y1>0</y1>
+                <x2>1</x2><y2>0</y2>
+            </carRect>
+            <carAttribute>
+                <carType><![CDATA[mpv]]></carType>
+                <color><![CDATA[white]]></color>
+                <brand><![CDATA[GMC]]></brand>
+                <model><![CDATA[GMC_SAVANA]]></model>
+            </carAttribute>
+            <targetImageData>
+                <dataType>0</dataType>
+                <width>128</width>
+                <height>64</height>
+                <targetBase64Length>2760</targetBase64Length>
+                <targetBase64Data>BASE64_JPEG_PLATE_CROP</targetBase64Data>
+            </targetImageData>
+        </item>
+    </licensePlateListInfo>
+</config>

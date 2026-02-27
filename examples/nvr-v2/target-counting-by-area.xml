@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NVR v2.0: targetCountingByArea (Object Counting by Area)
+     Sent when a person or vehicle is counted within a defined polygon zone.
+     IPC v1.x equivalent: TRAFFIC
+     alarmStatus field: passlineAlarm -->
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmData</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Device Name]]></deviceName>
+        <ip><![CDATA[192.168.0.60]]></ip>
+        <mac><![CDATA[58:5B:69:40:F4:0D]]></mac>
+        <channelId>1</channelId>
+    </deviceInfo>
+    <smartType>targetCountingByArea</smartType>
+    <currentTime>1772145352968000</currentTime>
+    <eventInfo>
+        <item>
+            <eventId>2904</eventId>
+            <targetId>2204</targetId>
+            <boundary>area</boundary>
+            <pointGroup>
+                <item><x>4450</x><y>4292</y></item>
+                <item><x>4469</x><y>9015</y></item>
+                <item><x>1079</x><y>8510</y></item>
+                <item><x>1344</x><y>4166</y></item>
+            </pointGroup>
+            <rect>
+                <x1>4431</x1><y1>4409</y1>
+                <x2>4971</x2><y2>9791</y2>
+            </rect>
+        </item>
+    </eventInfo>
+    <sourceDataInfo>
+        <dataType>0</dataType>
+        <width>1280</width>
+        <height>720</height>
+        <sourceBase64Length>414832</sourceBase64Length>
+        <sourceBase64Data>BASE64_JPEG_OVERVIEW_IMAGE</sourceBase64Data>
+    </sourceDataInfo>
+    <targetListInfo>
+        <item>
+            <targetId>2204</targetId>
+            <targetType>person</targetType>
+            <targetImageData>
+                <dataType>0</dataType>
+                <width>336</width>
+                <height>448</height>
+                <targetBase64Length>72136</targetBase64Length>
+                <targetBase64Data>BASE64_JPEG_TARGET_CROP</targetBase64Data>
+            </targetImageData>
+        </item>
+    </targetListInfo>
+</config>

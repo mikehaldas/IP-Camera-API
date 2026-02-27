@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NVR v2.0: videoFaceDetect (Face Detection)
+     Sent when a face is detected in the camera's field of view.
+     IPC v1.x equivalent: VFD
+     alarmStatus field: vfdAlarm
+
+     IMPORTANT: This alarm type uses faceListInfo instead of
+     eventInfo + targetListInfo.
+
+     Face attribute fields:
+       age — young, youth, middleAged, elderly, unknown
+       sex — male, female, unknown
+       glasses — yes, no, unknown
+       mask — yes, no, unknown
+       targetImageData — square face crop (e.g., 184x184)
+
+     Note: Face RECOGNITION (matching against a database / VFD_MATCH) is NOT
+     forwarded via NVR HTTP Post. Only face detection with attributes is sent. -->
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmData</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Office]]></deviceName>
+        <ip><![CDATA[192.168.0.50]]></ip>
+        <mac><![CDATA[58:5B:69:12:F0:79]]></mac>
+        <channelId>1</channelId>
+    </deviceInfo>
+    <smartType>videoFaceDetect</smartType>
+    <currentTime>1772212642929000</currentTime>
+    <sourceDataInfo>
+        <dataType>0</dataType>
+        <width>1280</width>
+        <height>720</height>
+        <sourceBase64Length>440072</sourceBase64Length>
+        <sourceBase64Data>BASE64_JPEG_OVERVIEW_IMAGE</sourceBase64Data>
+    </sourceDataInfo>
+    <faceListInfo>
+        <item>
+            <targetId>50</targetId>
+            <rect>
+                <x1>854</x1><y1>176</y1>
+                <x2>978</x2><y2>300</y2>
+            </rect>
+            <age>middleAged</age>
+            <sex>male</sex>
+            <glasses>unknown</glasses>
+            <mask>unknown</mask>
+            <targetImageData>
+                <dataType>0</dataType>
+                <width>184</width>
+                <height>184</height>
+                <targetBase64Length>14860</targetBase64Length>
+                <targetBase64Data>BASE64_JPEG_FACE_CROP</targetBase64Data>
+            </targetImageData>
+        </item>
+    </faceListInfo>
+</config>

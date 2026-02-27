@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NVR v2.0: videoMetadata (Full-Frame Object Detection)
+     Continuous detection and tracking of all people and vehicles across the entire frame.
+     Unlike alarm-based types, this fires continuously when objects are in view.
+     IPC v1.x equivalent: VSD
+     alarmStatus: None — videoMetadata does not send alarmStatus messages.
+     Note: pointGroup covers the entire frame (~0-9900 on both axes). -->
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmData</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Device Name]]></deviceName>
+        <ip><![CDATA[192.168.0.60]]></ip>
+        <mac><![CDATA[58:5B:69:40:F4:0D]]></mac>
+        <channelId>1</channelId>
+    </deviceInfo>
+    <smartType>videoMetadata</smartType>
+    <currentTime>1772145578273000</currentTime>
+    <eventInfo>
+        <item>
+            <eventId>3215</eventId>
+            <targetId>2215</targetId>
+            <boundary>area</boundary>
+            <pointGroup>
+                <item><x>23</x><y>0</y></item>
+                <item><x>9880</x><y>158</y></item>
+                <item><x>9904</x><y>9873</y></item>
+                <item><x>0</x><y>9841</y></item>
+            </pointGroup>
+            <rect>
+                <x1>5284</x1><y1>4513</y1>
+                <x2>6079</x2><y2>9479</y2>
+            </rect>
+        </item>
+    </eventInfo>
+    <sourceDataInfo>
+        <dataType>0</dataType>
+        <width>1280</width>
+        <height>784</height>
+        <sourceBase64Length>451968</sourceBase64Length>
+        <sourceBase64Data>BASE64_JPEG_OVERVIEW_IMAGE</sourceBase64Data>
+    </sourceDataInfo>
+    <targetListInfo>
+        <item>
+            <targetId>2215</targetId>
+            <targetType>person</targetType>
+            <targetImageData>
+                <dataType>0</dataType>
+                <width>288</width>
+                <height>384</height>
+                <targetBase64Length>45832</targetBase64Length>
+                <targetBase64Data>BASE64_JPEG_TARGET_CROP</targetBase64Data>
+            </targetImageData>
+        </item>
+    </targetListInfo>
+</config>

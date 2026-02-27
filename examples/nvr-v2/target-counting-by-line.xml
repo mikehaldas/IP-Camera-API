@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NVR v2.0: targetCountingByLine (Object Counting by Line)
+     Sent when a person or vehicle crosses a counting line.
+     IPC v1.x equivalent: PASSLINECOUNT
+     alarmStatus field: passlineAlarm
+     Note: rect is all zeros for line counting — use targetListInfo for target data. -->
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmData</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Device Name]]></deviceName>
+        <ip><![CDATA[192.168.0.60]]></ip>
+        <mac><![CDATA[58:5B:69:40:F4:0D]]></mac>
+        <channelId>1</channelId>
+    </deviceInfo>
+    <smartType>targetCountingByLine</smartType>
+    <currentTime>1772140991308000</currentTime>
+    <eventInfo>
+        <item>
+            <eventId>1080</eventId>
+            <targetId>480</targetId>
+            <boundary>tripwire</boundary>
+            <directionLine>
+                <startPoint><x>3977</x><y>2146</y></startPoint>
+                <endPoint><x>3977</x><y>9974</y></endPoint>
+            </directionLine>
+            <rect>
+                <x1>0</x1><y1>0</y1>
+                <x2>0</x2><y2>0</y2>
+            </rect>
+        </item>
+    </eventInfo>
+    <sourceDataInfo>
+        <dataType>0</dataType>
+        <width>1280</width>
+        <height>720</height>
+        <sourceBase64Length>441256</sourceBase64Length>
+        <sourceBase64Data>BASE64_JPEG_OVERVIEW_IMAGE</sourceBase64Data>
+    </sourceDataInfo>
+    <targetListInfo>
+        <item>
+            <targetId>480</targetId>
+            <targetType>person</targetType>
+            <targetImageData>
+                <dataType>0</dataType>
+                <width>336</width>
+                <height>448</height>
+                <targetBase64Length>72896</targetBase64Length>
+                <targetBase64Data>BASE64_JPEG_TARGET_CROP</targetBase64Data>
+            </targetImageData>
+        </item>
+    </targetListInfo>
+</config>

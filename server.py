@@ -67,6 +67,8 @@ v2_class_lookup = {
     'targetCountingByLine':  {'class': TargetCountingByLine},
     'targetCountingByArea':  {'class': TargetCountingByArea},
     'videoMetadata':         {'class': VideoMetadataV2},
+    'vehicle':               {'class': VehicleLPR},
+    'videoFaceDetect':       {'class': FaceDetectionV2},
 }
 
 def get_lan_ip():
@@ -190,10 +192,14 @@ class handler(BaseHTTPRequestHandler):
             VT.set_ip_address(client_ip)
 
             # process license plate recognition events
-            if VT.get_alarm_type() in ['VEHICLE', 'VEHICE']:
+            if VT.get_alarm_type() in ['VEHICLE', 'VEHICE', 'vehicle']:
                 print("LPR event detected!")
                 plate = VT.get_plate_number()
                 print(f"Plate Number: {plate}")
+
+                # v2.0 vehicle type includes car attributes
+                if hasattr(VT, 'get_car_brand') and VT.get_car_brand():
+                    print(f"Vehicle: {VT.get_car_color()} {VT.get_car_brand()} {VT.get_car_model()} ({VT.get_car_type()})")
 
                 if VT.is_plate_authorized():
                     print("Is plate authorized: Yes")
@@ -201,6 +207,13 @@ class handler(BaseHTTPRequestHandler):
                 else:
                     print("Is plate authorized: NO!")
                     plate_auth = "Plate NOT Authorized"
+            # process face detection events
+            elif VT.get_alarm_type() in ['VFD', 'videoFaceDetect']:
+                print("Face Detection event!")
+                if hasattr(VT, 'get_face_age') and VT.get_face_age():
+                    print(f"Face: {VT.get_face_age()} {VT.get_face_sex()}, glasses={VT.get_face_glasses()}, mask={VT.get_face_mask()}")
+                plate_auth = "N/A"
+                plate = "N/A"
             else:
                 plate_auth = "N/A"
                 plate = "N/A"

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IPC v1.x: VSD (Video Metadata / Full-Frame Object Detection)
+     Continuous detection and tracking of all people and vehicles in the frame.
+     NVR v2.0 equivalent: videoMetadata
+
+     The VSD format wraps image data in a <vsd> block rather than at the config level.
+     targetType: 1=person, 2=car, 4=bike -->
+<config version="1.7" xmlns="http://www.ipc.com/ver10">
+    <smartType type="openAlramObj">VSD</smartType>
+    <subscribeRelation type="subscribeOption">FEATURE_RESULT</subscribeRelation>
+    <currentTime type="tint64">1732045234584193</currentTime>
+    <types>
+        <openAlramObj type="string">VEHICE,VFD_MATCH,PEA,VFD,VSD,AOIENTRY,AOILEAVE,PASSLINECOUNT,TRAFFIC</openAlramObj>
+        <targetType type="string">1,2,4</targetType>
+    </types>
+    <vsd>
+        <sourceDataInfo>
+            <dataType type="uint32">0</dataType>
+            <width type="uint32">1920</width>
+            <height type="uint32">1080</height>
+            <sourceBase64Length type="uint32">200000</sourceBase64Length>
+            <sourceBase64Data type="string"><![CDATA[BASE64_JPEG_OVERVIEW_IMAGE]]></sourceBase64Data>
+        </sourceDataInfo>
+        <targetImageData>
+            <dataType type="uint32">0</dataType>
+            <targetType type="uint32">1</targetType>
+            <Width type="tuint32">400</Width>
+            <Height type="tuint32">600</Height>
+            <targetBase64Length type="uint32">50000</targetBase64Length>
+            <targetBase64Data type="string"><![CDATA[BASE64_JPEG_TARGET_CROP]]></targetBase64Data>
+        </targetImageData>
+    </vsd>
+</config>

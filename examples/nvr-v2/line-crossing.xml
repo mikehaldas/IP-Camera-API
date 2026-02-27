@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NVR v2.0: lineCrossing (Line Crossing / Tripwire)
+     Sent when a person or vehicle crosses a defined tripwire line.
+     IPC v1.x equivalent: PEA (with <tripwire> block)
+     alarmStatus field: perimeterAlarm
+     Note: No crossing direction (A→B vs B→A) is included in the post. -->
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmData</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Device Name]]></deviceName>
+        <ip><![CDATA[192.168.0.60]]></ip>
+        <mac><![CDATA[58:5B:69:40:F4:0D]]></mac>
+        <channelId>1</channelId>
+    </deviceInfo>
+    <smartType>lineCrossing</smartType>
+    <currentTime>1772057090604000</currentTime>
+    <eventInfo>
+        <item>
+            <eventId>1409</eventId>
+            <targetId>1309</targetId>
+            <boundary>tripwire</boundary>
+            <directionLine>
+                <startPoint><x>3579</x><y>2550</y></startPoint>
+                <endPoint><x>3655</x><y>9797</y></endPoint>
+            </directionLine>
+            <rect>
+                <x1>3494</x1><y1>4409</y1>
+                <x2>4261</x2><y2>9791</y2>
+            </rect>
+        </item>
+    </eventInfo>
+    <sourceDataInfo>
+        <dataType>0</dataType>
+        <width>1280</width>
+        <height>720</height>
+        <sourceBase64Length>443820</sourceBase64Length>
+        <sourceBase64Data>BASE64_JPEG_OVERVIEW_IMAGE</sourceBase64Data>
+    </sourceDataInfo>
+    <targetListInfo>
+        <item>
+            <targetId>1309</targetId>
+            <targetType>person</targetType>
+            <targetImageData>
+                <dataType>0</dataType>
+                <width>336</width>
+                <height>448</height>
+                <targetBase64Length>78796</targetBase64Length>
+                <targetBase64Data>BASE64_JPEG_TARGET_CROP</targetBase64Data>
+            </targetImageData>
+        </item>
+    </targetListInfo>
+</config>

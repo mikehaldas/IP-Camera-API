@@ -1,65 +1,140 @@
 # Viewtron IP Camera API Server
-A Python HTTP server to integrate with the HTTP Post / XML API of Viewtron IP cameras.
 
-Viewtron IP cameras have an API for software developers to create custom applications, business automation, and home automation.
-The IP cameras API can send an HTTP Post with an XML payload to an external server's webhook end point.
-The XML payload contains information about the alarm event that the camera detected. This is particularly useful with Viewtron AI security cameras
-that perform AI inference on the camera. Certain Viewtron AI camera models support he following AI detected alarm events:
-license plate detection, automatic license plate recogition, license plate authorized / not authorized database,
-human detection, car detection, perimeter intrusion detection, line crossing detection, face detection / facial recognition.
+A Python HTTP server that receives and processes HTTP Post alarm events from Viewtron IP cameras and NVRs.
 
-Please note that only certain models support license plate recongition, face recognition, human and vehicle object detection.
-https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
+Viewtron IP cameras and NVRs include an HTTP API for software developers to create custom applications, business automation, and home automation. The AI software is embedded in Viewtron AI security cameras — all AI inference takes place on the camera itself, with no cloud service or external server required for detection. When an AI event occurs, the camera or NVR sends an HTTP Post with an XML payload to your server's webhook endpoint. This server parses the XML, extracts event data and images, logs events to CSV, and saves snapshot images to disk.
 
-## License Plate Capture Video Demo
+The server supports both **IP Camera direct (v1.x)** and **NVR forwarded (v2.0)** alarm formats. Version detection is automatic.
 
-[![Watch the Video Demo](https://img.youtube.com/vi/aifIKamg-ls/maxresdefault.jpg)](https://www.youtube.com/watch?v=aifIKamg-ls)
+## License Plate Recognition
 
-Here is video demo of the server recieving HTTP Posts from a Viewtron license plate recognition camera. You can see how the server
-writes the event to CSV log file, saves the licese plate images to a directory, and prints the relevant info to the screen. 
-The video also shows how to setup the LPR camera's plate detection zone, authorized license plate database, and HTTP Post endpost.
+[![License Plate Recognition Video Demo](https://img.youtube.com/vi/aifIKamg-ls/maxresdefault.jpg)](https://www.youtube.com/watch?v=aifIKamg-ls)
 
-The current version of the server works well in processing Viewtron LPR cameras / license plate recognition events.
-It is specifically tested with Viewtron license plate recognition camera model LPR-IP4. It is also important to know
-that license plate recognition events are ONLY supported by Viewtron LPR cameras models.
-https://www.cctvcamerapros.com/LPR-Camera-p/lpr-ip4.htm
+Viewtron LPR cameras detect and read license plates in real time. The server receives plate number, plate image, and overview snapshot for each detection. The v1.x IPC format includes whitelist/blacklist authorization status. The v2.0 NVR format includes vehicle attribute recognition: plate color, vehicle type, color, brand, and model.
 
-## NVR v2.0 Support (February 2026)
+| Source | smartType | Data |
+|--------|-----------|------|
+| IPC v1.x | `VEHICE` / `VEHICLE` | Plate number, plate image, overview, whitelist/blacklist |
+| NVR v2.0 | `vehicle` | Plate number, plate color, vehicle type/color/brand/model, plate crop, overview |
 
-The server now supports HTTP Posts from both **IP Cameras (v1.x)** and **NVRs (v2.0)**.
+Shop LPR cameras: https://www.cctvcamerapros.com/License-Plate-Recognition-Systems-s/1518.htm
 
-When cameras connect to an NVR's built-in PoE ports, the NVR can forward AI detection events to your server. The NVR uses a different XML format (v2.0) than direct IP camera posts, but this server handles both automatically - your code doesn't need to handle the differences.
+## Face Detection
 
-**Supported NVR detection types:**
-- `regionIntrusion` - Perimeter intrusion (person/vehicle enters zone)
-- `lineCrossing` - Tripwire / line crossing detection
+[![Face Detection Video Demo](https://img.youtube.com/vi/GZOLUuTFqcw/maxresdefault.jpg)](https://www.youtube.com/watch?v=GZOLUuTFqcw)
 
-**Documentation:**
-- [NVR Setup Guide](https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks) - How to configure NVR HTTP Post webhooks
-- [NVR API Detection Events](https://videos.cctvcamerapros.com/support/topic/nvr-webhook-api-ai-events) - NVR v2.0 XML format reference
+Viewtron face detection cameras capture facial images and analyze face attributes. The server receives a face crop image and overview snapshot for each detection. The v2.0 NVR format includes face attribute analysis: age, sex, glasses, and mask detection.
 
-## Update to Support Face Detection, Human Detection, Vehicle Detection
+| Source | smartType | Data |
+|--------|-----------|------|
+| IPC v1.x | `VFD` | Face crop, overview |
+| NVR v2.0 | `videoFaceDetect` | Face crop, overview, age, sex, glasses, mask |
 
-11/23/2025 Update: The server has been updated to support face detection events. Just like LPR events,
-face detection events send a snapshot image and a cropped image of the face that was detected which can be saved to disk.
-You can find all of the Viewtron IP cameras that support face detection / facial recognition here.
-https://www.cctvcamerapros.com/face-recognition-cameras-s/1761.htm
+**Note:** Face recognition (matching against a face database) is not forwarded via NVR HTTP Post. The NVR only sends face detection events. Face match (`VFD_MATCH`) may only be available via direct IP camera connection.
 
-Human detection / perimeter intrusion, vehicle detection / perimeter intrusion are also now supported. You can use any of these Viewtron IP
-cameras for human detection and vehicle detection permiter alarms and line crossing alarms.
-https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
+Shop face detection cameras: https://www.cctvcamerapros.com/face-recognition-cameras-s/1761.htm
 
-## LPR Camera Setup
+## Perimeter Security — Intrusion & Line Crossing Detection
 
-All of the server connection information is configured on the Viewtron IP camera. You also define the license plate detection zone
-and optionally add plates to the database through the IP camera's web interface. Those instructions can be found here.
-https://videos.cctvcamerapros.com/v/lpr-camera-api.html
+[![Perimeter Security Video Demo](https://img.youtube.com/vi/dDDJtFURR_o/maxresdefault.jpg)](https://www.youtube.com/watch?v=dDDJtFURR_o)
 
-## Additional Info
-You can find all Viewtron security camera system products here.
-https://www.Viewtron.com
+All Viewtron AI cameras support perimeter intrusion detection and line crossing (tripwire) detection. The server receives an overview snapshot and a cropped image of the detected person or vehicle. The NVR format includes the intrusion zone polygon coordinates and target bounding box.
 
-This IP camera API server was written by Mike Haldas, co-founder of CCTV Camera Pros.
+| Source | smartType | Description |
+|--------|-----------|-------------|
+| IPC v1.x | `PEA` | Perimeter intrusion and line crossing (differentiated by XML structure) |
+| NVR v2.0 | `regionIntrusion` | Person or vehicle enters a defined zone |
+| NVR v2.0 | `lineCrossing` | Person or vehicle crosses a tripwire line |
+
+Zone entry and zone exit detection are also supported via IPC direct connection.
+
+| Source | smartType | Description |
+|--------|-----------|-------------|
+| IPC v1.x | `AOIENTRY` | Object enters a defined zone |
+| IPC v1.x | `AOILEAVE` | Object exits a defined zone |
+
+Shop AI security cameras: https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
+
+## Object Counting
+
+[![Object Counting Video Demo](https://img.youtube.com/vi/1jlT4Nw145Q/maxresdefault.jpg)](https://www.youtube.com/watch?v=1jlT4Nw145Q)
+
+Viewtron AI cameras can count people and vehicles crossing a line or entering an area. The server receives an overview snapshot and a cropped image of each counted object. Line counting uses a tripwire; area counting uses a polygon zone.
+
+| Source | smartType | Description |
+|--------|-----------|-------------|
+| NVR v2.0 | `targetCountingByLine` | Count objects crossing a defined line |
+| NVR v2.0 | `targetCountingByArea` | Count objects within a defined zone |
+
+Shop AI security cameras: https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
+
+## Video Metadata — Full Frame Object Detection
+
+Viewtron AI cameras can perform continuous object detection and tracking across the entire camera frame. Unlike alarm-based detection types, video metadata detects and classifies all people and vehicles in the scene continuously. The server receives an overview snapshot and a cropped image of each detected target.
+
+| Source | smartType | Description |
+|--------|-----------|-------------|
+| IPC v1.x | `VSD` | Full-frame object detection and tracking |
+| NVR v2.0 | `videoMetadata` | Full-frame object detection and tracking |
+
+Shop AI security cameras: https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
+
+## How It Works
+
+1. Configure your IP camera or NVR to send HTTP Posts to this server's IP and port
+2. The server receives XML alarm data and auto-detects the format version (v1.x or v2.0)
+3. Events are parsed, images are decoded and saved, and a CSV log entry is created
+4. All raw XML posts are saved to `raw_posts/` for debugging and analysis
+
+**Output:**
+- `events.csv` — Event log with alarm type, timestamp, plate number (LPR), image paths
+- `images/` — Saved JPEG snapshots (overview and target crops)
+- `raw_posts/` — Raw XML posts for debugging
+
+## XML Examples
+
+The [`examples/`](examples/) folder contains sample XML payloads for every supported alarm type in both IPC v1.x and NVR v2.0 formats. Base64 image data has been replaced with descriptive placeholders so the files are small and readable.
+
+Use these to understand the XML structure, test your parser, or build your own server without needing a physical camera.
+
+```bash
+# POST an example directly to the server for testing
+curl -X POST http://localhost:5002/API \
+  -H "Content-Type: application/xml" \
+  -d @examples/nvr-v2/vehicle-lpr.xml
+```
+
+See [`examples/README.md`](examples/README.md) for the full index, key format differences, and coordinate system documentation.
+
+## Setup
+
+**IP Camera direct:** Configure the HTTP Post endpoint in the camera's web interface under Alarm Server settings.
+Setup guide: https://videos.cctvcamerapros.com/support/topic/ip-camera-api-webbooks
+
+**NVR:** Configure the HTTP Post endpoint in the NVR's Alarm Server settings. All cameras connected to the NVR's PoE ports will have their AI events forwarded automatically.
+Setup guide: https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks
+
+**Server installation:** See [INSTALL.md](INSTALL.md). Tested on Ubuntu Linux and Raspberry Pi.
+
+## Documentation
+
+| Resource | Description |
+|----------|-------------|
+| [XML Examples](examples/) | Sample XML payloads for all alarm types with format documentation |
+| [IP Camera Setup Guide](https://videos.cctvcamerapros.com/support/topic/ip-camera-api-webbooks) | Configure IP camera HTTP Post webhooks |
+| [IP Camera Detection Events](https://videos.cctvcamerapros.com/support/topic/ai-security-camera-api) | IP camera v1.x detection types reference |
+| [NVR Setup Guide](https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks) | Configure NVR HTTP Post webhooks |
+| [NVR Detection Events](https://videos.cctvcamerapros.com/support/topic/nvr-webhook-api-ai-events) | NVR v2.0 detection types reference |
+
+## Products
+
+- **All Viewtron Products:** https://www.Viewtron.com
+- **AI Security Cameras:** https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
+- **LPR Cameras:** https://www.cctvcamerapros.com/License-Plate-Recognition-Systems-s/1518.htm
+- **Face Recognition Cameras:** https://www.cctvcamerapros.com/face-recognition-cameras-s/1761.htm
+- **IP Camera NVRs:** https://www.cctvcamerapros.com/IP-Camera-NVRs-s/1472.htm
+
+## Author
+
+Written by Mike Haldas, co-founder of CCTV Camera Pros.
 mike@cctvcamerapros.net
-
-Read INSTALL.md for installation instructions. Tested on Ubuntu Linux and Raspberry Pi Raspian OS.

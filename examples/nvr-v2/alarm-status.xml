@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NVR v2.0: alarmStatus
+     Lightweight notification sent when an alarm starts (true) or stops (false).
+     No images. Arrives BEFORE the alarmData post (for alarm types that send it).
+
+     The alarm field name varies by detection type:
+       perimeterAlarm — regionIntrusion, lineCrossing
+       passlineAlarm  — targetCountingByLine, targetCountingByArea
+       vfdAlarm       — videoFaceDetect
+       motionAlarm    — motion detection
+       chlOfflineAlarm — camera disconnected from NVR
+
+     The item id corresponds to the rule number configured on the camera.
+     For example, id="1" means rule 1 for that alarm type on that channel.
+
+     Not all alarm types send alarmStatus:
+       vehicle (LPR) — no alarmStatus observed
+       videoMetadata — no alarmStatus observed -->
+
+<!-- Example: Perimeter intrusion alarm started -->
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmStatus</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Device Name]]></deviceName>
+        <ip><![CDATA[192.168.0.60]]></ip>
+        <mac><![CDATA[58:5B:69:40:F4:0D]]></mac>
+        <channelId>1</channelId>
+    </deviceInfo>
+    <currentTime>1772056914000000</currentTime>
+    <alarmStatusInfo>
+        <perimeterAlarm><item id="1">true</item></perimeterAlarm>
+    </alarmStatusInfo>
+</config>
+
+<!-- Example: Face detection alarm started
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmStatus</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Office]]></deviceName>
+        <ip><![CDATA[192.168.0.50]]></ip>
+        <mac><![CDATA[58:5B:69:12:F0:79]]></mac>
+        <channelId>1</channelId>
+    </deviceInfo>
+    <currentTime>1772212633000000</currentTime>
+    <alarmStatusInfo>
+        <vfdAlarm><item id="1">true</item></vfdAlarm>
+    </alarmStatusInfo>
+</config>
+-->
+
+<!-- Example: Object counting alarm started
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmStatus</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Device Name]]></deviceName>
+        <ip><![CDATA[192.168.0.60]]></ip>
+        <mac><![CDATA[58:5B:69:40:F4:0D]]></mac>
+        <channelId>1</channelId>
+    </deviceInfo>
+    <currentTime>1772140991000000</currentTime>
+    <alarmStatusInfo>
+        <passlineAlarm><item id="1">true</item></passlineAlarm>
+    </alarmStatusInfo>
+</config>
+-->
