@@ -17,7 +17,7 @@ Viewtron LPR cameras detect and read license plates in real time. The server rec
 | IPC v1.x | `VEHICE` / `VEHICLE` | Plate number, plate image, overview, whitelist/blacklist |
 | NVR v2.0 | `vehicle` | Plate number, plate color, vehicle type/color/brand/model, plate crop, overview |
 
-Shop LPR cameras: https://www.cctvcamerapros.com/License-Plate-Recognition-Systems-s/1518.htm
+Watch Viewtron LPR camera videos here: https://videos.cctvcamerapros.com/tag/alpr-lpr-camera
 
 ## Face Detection
 
@@ -32,13 +32,13 @@ Viewtron face detection cameras capture facial images and analyze face attribute
 
 **Note:** Face recognition (matching against a face database) is not forwarded via NVR HTTP Post. The NVR only sends face detection events. Face match (`VFD_MATCH`) may only be available via direct IP camera connection.
 
-Shop face detection cameras: https://www.cctvcamerapros.com/face-recognition-cameras-s/1761.htm
+Watch additional face detection / facial recognition camera videos: https://videos.cctvcamerapros.com/tag/face-recognition-camera
 
 ## Perimeter Security — Intrusion & Line Crossing Detection
 
 [![Perimeter Security Video Demo](https://img.youtube.com/vi/dDDJtFURR_o/maxresdefault.jpg)](https://www.youtube.com/watch?v=dDDJtFURR_o)
 
-All Viewtron AI cameras support perimeter intrusion detection and line crossing (tripwire) detection. The server receives an overview snapshot and a cropped image of the detected person or vehicle. The NVR format includes the intrusion zone polygon coordinates and target bounding box.
+All Viewtron AI cameras support perimeter intrusion detection and line crossing (tripwire) detection. Human detection and car / vehicle detection objects can both trigger intrusion and line crossing alrams. The server receives an overview snapshot and a cropped image of the detected person or vehicle. The NVR format includes the intrusion zone polygon coordinates and target bounding box.
 
 | Source | smartType | Description |
 |--------|-----------|-------------|
@@ -53,7 +53,8 @@ Zone entry and zone exit detection are also supported via IPC direct connection.
 | IPC v1.x | `AOIENTRY` | Object enters a defined zone |
 | IPC v1.x | `AOILEAVE` | Object exits a defined zone |
 
-Shop AI security cameras: https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
+Watch Viewtron human detecion AI videos here: https://videos.cctvcamerapros.com/tag/human-detection-ai
+Watch Viewtron vehicle / car detection AI videos here: https://videos.cctvcamerapros.com/tag/car-detection-ai
 
 ## Object Counting
 
@@ -66,8 +67,6 @@ Viewtron AI cameras can count people and vehicles crossing a line or entering an
 | NVR v2.0 | `targetCountingByLine` | Count objects crossing a defined line |
 | NVR v2.0 | `targetCountingByArea` | Count objects within a defined zone |
 
-Shop AI security cameras: https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
-
 ## Video Metadata — Full Frame Object Detection
 
 Viewtron AI cameras can perform continuous object detection and tracking across the entire camera frame. Unlike alarm-based detection types, video metadata detects and classifies all people and vehicles in the scene continuously. The server receives an overview snapshot and a cropped image of each detected target.
@@ -76,8 +75,6 @@ Viewtron AI cameras can perform continuous object detection and tracking across 
 |--------|-----------|-------------|
 | IPC v1.x | `VSD` | Full-frame object detection and tracking |
 | NVR v2.0 | `videoMetadata` | Full-frame object detection and tracking |
-
-Shop AI security cameras: https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm
 
 ## How It Works
 
