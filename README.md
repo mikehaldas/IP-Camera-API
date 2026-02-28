@@ -54,6 +54,7 @@ Zone entry and zone exit detection are also supported via IPC direct connection.
 | IPC v1.x | `AOILEAVE` | Object exits a defined zone |
 
 Watch Viewtron human detecion AI videos here: https://videos.cctvcamerapros.com/tag/human-detection-ai
+
 Watch Viewtron vehicle / car detection AI videos here: https://videos.cctvcamerapros.com/tag/car-detection-ai
 
 ## Object Counting
