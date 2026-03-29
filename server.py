@@ -26,6 +26,7 @@ import socket
 import os
 import threading
 import time
+import sys
 
 # ====================== CONFIG ======================
 SERVER_PORT = 5002
@@ -47,6 +48,155 @@ DEBUG_SAVE_RAW = True
 
 # print keep alive posts for debugging
 DEBUG_KEEPALIVE = False
+
+# ====================== TRAJECT CONFIG ======================
+# save all raw traject XML posts (set to 0 for unlimited)
+TRAJECT_RAW_SAVE_MAX = 0
+
+# ====================== TRAJECT SESSION STATE ======================
+traject_lock = threading.Lock()
+traject_post_count = 0         # total traject posts this session
+traject_raw_saved = 0          # how many raw posts we've saved so far
+traject_timestamps = []        # recent timestamps for rate calculation
+traject_targets = {}           # targetId -> {first_seen, last_seen, post_count, last_type, last_rect}
+traject_session_start = None   # when first traject post arrived
+
+
+def handle_traject(text, client_ip, headers):
+    """Handle a traject (smart track) post. Updates live console, saves limited raw XML."""
+    global traject_post_count, traject_raw_saved, traject_session_start
+
+    now = time.time()
+
+    # parse out traject fields from XML
+    target_id = "?"
+    target_type = "?"
+    rect_str = "?"
+    source = "IPC"
+    try:
+        data = xmltodict.parse(text)
+        config = data.get('config', {})
+        version = config.get('@version', '')
+
+        # determine source (IPC v1.x vs NVR v2.0)
+        if version.startswith('2'):
+            source = "NVR"
+            device_info = config.get('deviceInfo', {})
+            ch = device_info.get('channelId', '?')
+            source = f"NVR-ch{ch}"
+
+        # device name
+        device_name = config.get('deviceName', '') or config.get('deviceInfo', {}).get('deviceName', '')
+        if isinstance(device_name, dict):
+            device_name = device_name.get('#text', '') or device_name.get('value', '')
+
+        # parse traject items
+        traject_data = config.get('traject', {})
+        items = traject_data.get('item', []) if isinstance(traject_data, dict) else []
+        if not isinstance(items, list):
+            items = [items] if items else []
+
+        if items:
+            item = items[0]
+            if isinstance(item, dict):
+                tid = item.get('targetId', {})
+                target_id = tid.get('#text', str(tid)) if isinstance(tid, dict) else str(tid)
+
+                tt = item.get('targetType', {})
+                target_type = tt.get('#text', str(tt)) if isinstance(tt, dict) else str(tt)
+
+                rect = item.get('rect', {})
+                x1 = rect.get('x1', {})
+                y1 = rect.get('y1', {})
+                x2 = rect.get('x2', {})
+                y2 = rect.get('y2', {})
+                # xmltodict may return dicts with #text or plain strings
+                x1 = x1.get('#text', str(x1)) if isinstance(x1, dict) else str(x1)
+                y1 = y1.get('#text', str(y1)) if isinstance(y1, dict) else str(y1)
+                x2 = x2.get('#text', str(x2)) if isinstance(x2, dict) else str(x2)
+                y2 = y2.get('#text', str(y2)) if isinstance(y2, dict) else str(y2)
+                rect_str = f"({x1},{y1})-({x2},{y2})"
+    except Exception as e:
+        pass  # still count the post even if parsing fails
+
+    with traject_lock:
+        traject_post_count += 1
+        if traject_session_start is None:
+            traject_session_start = now
+            print()  # blank line before first traject output
+
+        # rate calculation (posts in last 2 seconds)
+        traject_timestamps.append(now)
+        cutoff = now - 2.0
+        while traject_timestamps and traject_timestamps[0] < cutoff:
+            traject_timestamps.pop(0)
+        rate = len(traject_timestamps) / 2.0
+
+        # per-target tracking
+        if target_id not in traject_targets:
+            traject_targets[target_id] = {
+                'first_seen': now, 'last_seen': now,
+                'post_count': 0, 'last_type': target_type, 'last_rect': rect_str
+            }
+        t = traject_targets[target_id]
+        t['last_seen'] = now
+        t['post_count'] += 1
+        t['last_type'] = target_type
+        t['last_rect'] = rect_str
+
+        # save raw XML (unlimited when TRAJECT_RAW_SAVE_MAX=0)
+        if TRAJECT_RAW_SAVE_MAX == 0 or traject_raw_saved < TRAJECT_RAW_SAVE_MAX:
+            traject_raw_saved += 1
+            ts = dt.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-3]
+            safe_ip = client_ip.replace('.', '-')
+            raw_file = f"{RAW_POST_DIR}/traject_{ts}_{safe_ip}.xml"
+            try:
+                with open(raw_file, 'w', encoding='utf-8') as f:
+                    f.write("=== HEADERS ===\n")
+                    for h, v in headers:
+                        f.write(f"{h}: {v}\n")
+                    f.write(f"\n=== BODY ===\n")
+                    f.write(text)
+            except:
+                pass
+
+        # live updating console line
+        active_targets = sum(1 for t in traject_targets.values() if now - t['last_seen'] < 3.0)
+        line = f"[traject] {source} | id={target_id} type={target_type} rect={rect_str} | {rate:.1f}/sec | targets: {active_targets} active, {len(traject_targets)} total | #{traject_post_count}"
+        sys.stdout.write(f"\r{line:<120}")
+        sys.stdout.flush()
+
+
+def print_traject_stats():
+    """Print traject session summary on shutdown."""
+    with traject_lock:
+        if traject_post_count == 0:
+            return
+
+        print(f"\n\n{'='*70}")
+        print(f"TRAJECT SESSION SUMMARY")
+        print(f"{'='*70}")
+        print(f"Total traject posts received: {traject_post_count}")
+        print(f"Raw XML posts saved:          {traject_raw_saved}")
+        print(f"Unique target IDs:            {len(traject_targets)}")
+
+        if traject_session_start:
+            duration = time.time() - traject_session_start
+            print(f"Session duration:             {duration:.1f}s")
+            if duration > 0:
+                print(f"Average post rate:            {traject_post_count / duration:.1f}/sec")
+
+        if traject_targets:
+            print(f"\nPer-target breakdown:")
+            print(f"  {'ID':<10} {'Type':<10} {'Posts':<8} {'Duration':<12} {'Rate':<10} {'Last Rect'}")
+            print(f"  {'-'*10} {'-'*10} {'-'*8} {'-'*12} {'-'*10} {'-'*20}")
+            for tid, info in sorted(traject_targets.items(), key=lambda x: x[1]['first_seen']):
+                dur = info['last_seen'] - info['first_seen']
+                rate = info['post_count'] / dur if dur > 0 else 0
+                dur_str = f"{dur:.1f}s" if dur > 0 else "<1s"
+                rate_str = f"{rate:.1f}/sec" if dur > 0 else "—"
+                print(f"  {tid:<10} {info['last_type']:<10} {info['post_count']:<8} {dur_str:<12} {rate_str:<10} {info['last_rect']}")
+        print(f"{'='*70}\n")
 
 # the alarm type in the XML Post determined the object class we need to instantiate
 # there is a type on some early camera firmwares for VEHICLE alarms
@@ -117,8 +267,8 @@ class handler(BaseHTTPRequestHandler):
         body = self.rfile.read(length)
         text = body.decode('utf-8', errors='replace')
 
-        # law the raw HTTP Header and Body for debugging
-        if DEBUG_SAVE_RAW:
+        # save the raw HTTP Header and Body for debugging (skip traject — handled separately)
+        if DEBUG_SAVE_RAW and '<traject type="list"' not in text:
             ts = dt.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-3]
             safe_ip = client_ip.replace('.', '-')
             raw_file = f"{RAW_POST_DIR}/raw_{ts}_{safe_ip}.xml"
@@ -135,6 +285,12 @@ class handler(BaseHTTPRequestHandler):
 
         # no need to do any further processing if the post does not contain XML data
         if '<?xml' not in text:
+            return
+
+        # === TRAJECT POSTS === (detect before alarm routing — no CSV, no images)
+        if '<traject type="list"' in text:
+            header_list = list(self.headers.items())
+            handle_traject(text, client_ip, header_list)
             return
 
         try:
@@ -270,4 +426,5 @@ if __name__ == "__main__":
         pass
     finally:
         httpd.server_close()
+        print_traject_stats()
         print("Server stopped.")

@@ -77,6 +77,25 @@ Viewtron AI cameras can perform continuous object detection and tracking across 
 | IPC v1.x | `VSD` | Full-frame object detection and tracking |
 | NVR v2.0 | `videoMetadata` | Full-frame object detection and tracking |
 
+## Real-Time Target Tracking (traject)
+
+Viewtron AI cameras support a continuous tracking mode called **traject** (smart track data) through the httpPostV2 system. Unlike alarm-based detection types that send one post per event, traject sends **continuous HTTP Posts at ~7-12 per second** for the entire duration a target is being tracked in the detection zone — with zero gaps.
+
+Each post includes the target's bounding box coordinates, target type (person/car/motor), and a unique target ID that remains consistent across all posts for the same target. Posts start immediately when tracking begins and stop within one second of the target leaving the zone.
+
+| Source | Data Type | Description |
+|--------|-----------|-------------|
+| IP Camera only | `traject` | Continuous bounding box, target ID, target type, velocity, direction |
+
+**Important:** Traject is an IP camera-only feature. It must be configured directly on the IP camera's firmware — NVRs do not support or forward traject data. However, the camera sends traject directly to your server even when connected through an NVR's PoE port, so you can use both: NVR for recording and alarm events, IP camera for real-time tracking.
+
+**When to use traject:**
+
+- **Relay / automation control** — Activate lights, gates, or alarms based on continuous human presence, not just an alarm trigger. Traject provides a real-time presence signal with no gaps, unlike alarm-based polling which has 5-20 second gaps while the target is still present.
+- **Dwell time analysis** — Measure exactly how long a person or vehicle remains in a zone, with sub-second accuracy.
+- **Real-time position tracking** — Track a target's movement through the frame using bounding box coordinates (normalized 0-10000 range).
+- **Custom alarm logic** — Build rules based on where a target is, how long it stays, or how it moves — not just whether it triggered a zone.
+
 ## How It Works
 
 1. Configure your IP camera or NVR to send HTTP Posts to this server's IP and port
