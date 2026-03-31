@@ -6,6 +6,10 @@ Viewtron IP cameras and NVRs include an HTTP API for software developers to crea
 
 The server supports both **IP Camera direct (v1.x)** and **NVR forwarded (v2.0)** alarm formats. Version detection is automatic.
 
+## Viewtron API Developer Guide
+
+You an find the API guide here: https://github.com/mikehaldas/IP-Camera-API/blob/main/docs/viewtron-api-guide.md
+
 ## License Plate Recognition
 
 [![License Plate Recognition Video Demo](https://img.youtube.com/vi/aifIKamg-ls/maxresdefault.jpg)](https://www.youtube.com/watch?v=aifIKamg-ls)
