@@ -3,7 +3,10 @@
 > **Published by CCTV Camera Pros**
 > https://www.cctvcamerapros.com
 >
-> **Technical Support:** mike@cctvcamerapros.net | 561-433-8488
+> **Technical Contact:** Mike Haldas, Co-Founder CCTV Camera Pros
+> 
+> **Development & Consultation** mike@viewtron.com | 561-433-8488 ext. 86
+> 
 > **Python API Server:** https://github.com/mikehaldas/IP-Camera-API
 >
 > **Support Forum:**
@@ -20,8 +23,8 @@ This API applies to all **Viewtron IP cameras** and **Viewtron NVRs** sold by CC
 
 | Product Line | Description | Link |
 |-------------|-------------|------|
-| **Viewtron AI Security Cameras** | IP cameras with built-in AI (human detection, vehicle detection, face recognition, license plate recognition, auto-tracking PTZ). All AI inference runs on the camera. | https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm |
-| **Viewtron IP Camera NVRs** | Network video recorders with built-in PoE ports. Record IP cameras, manage AI detection, forward alarm events via HTTP POST. | https://www.cctvcamerapros.com/IP-Camera-NVRs-s/1472.htm |
+| **Viewtron AI Security Cameras** | IP cameras with built-in AI (human detection, vehicle detection, face detection / facial recognition, license plate recognition, auto-tracking PTZ). All AI inference runs on the camera. | https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm |
+| **Viewtron IP Camera NVRs** | Network video recorders with built-in PoE ports. Record IP cameras, manage AI detection, forward alarm events via HTTP POST, alarm panel input / output. | https://www.cctvcamerapros.com/IP-Camera-NVRs-s/1472.htm |
 
 All Viewtron IP cameras and NVRs are NDAA compliant (safe for US government and federal contractor use).
 
@@ -101,17 +104,18 @@ All Viewtron IP cameras and NVRs are NDAA compliant (safe for US government and 
 
 ### 1.1 What This API Does
 
-Viewtron IP cameras and NVRs expose an HTTP API for programmatic access to device configuration, live video, PTZ control, AI detection settings, alarm management, and real-time event webhooks. The API uses XML payloads over HTTP POST requests with Basic Authentication.
+Viewtron IP cameras and NVRs expose an HTTP API for programmatic access to device configuration, live video, PTZ control, AI detection settings, alarm management, alarm input / alarm output triggers, and real-time alarm / event webhooks. The API uses XML payloads over HTTP POST requests with Basic Authentication. Used for security camera integrations and applications development.
 
 You can use this API to:
 
 - Query device status and configuration
 - Capture snapshots and search recorded video
 - Control PTZ cameras (pan, tilt, zoom, presets, cruises)
-- Configure AI detection (intrusion, line crossing, face detection, LPR, object counting)
+- Configure AI security camera detection (human detection, car detection, intrusion, line crossing, face detection, LPR, object counting)
 - Receive real-time HTTP POST webhooks when AI detections occur (with images)
 - Receive continuous real-time target tracking data (`traject`)
 - Control alarm outputs (relays)
+- Virtial alarm access
 
 ### 1.2 API Versions
 
