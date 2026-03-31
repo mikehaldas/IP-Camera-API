@@ -1,4 +1,4 @@
-# Viewtron NVR and IP Camera API Guide / Security Camera HTTP Post Webhook Guide
+# Viewtron NVR and IP Security Camera API Guide
 
 > **Published by CCTV Camera Pros**
 > https://www.cctvcamerapros.com
