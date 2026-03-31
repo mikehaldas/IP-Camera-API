@@ -8,7 +8,7 @@ The server supports both **IP Camera direct (v1.x)** and **NVR forwarded (v2.0)*
 
 ## Viewtron API Developer Guide
 
-You an find the API guide here: https://github.com/mikehaldas/IP-Camera-API/blob/main/docs/viewtron-api-guide.md
+Find the Viewtron API developer guide here: https://github.com/mikehaldas/IP-Camera-API/blob/main/docs/viewtron-api-guide.md
 
 ## License Plate Recognition
 
