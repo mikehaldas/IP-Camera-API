@@ -119,40 +119,66 @@ Supported recording types include: `manual`, `schedule`, `motion`, `sensor`, `in
 
 ### RTSP Playback URL
 
-After identifying a recording segment, use the RTSP playback URL to stream it:
+After identifying a recording segment, use the RTSP playback URL to stream or export it:
 
 ```
-rtsp://<host>[:rtspPort]/chID=0&date=2024-08-23&time=15:07:28&timelen=200&streamType=main&action=playback
+rtsp://<user>:<pass>@<host>[:554]/chID=<channel>&date=YYYY-MM-DD&time=HH:MM:SS&timelen=<seconds>&streamType=main&action=playback
 ```
 
-## Quick Start Example
+| Parameter | Description |
+|-----------|-------------|
+| `chID` | Channel number (1-based) |
+| `date` | Recording date (`YYYY-MM-DD`) |
+| `time` | Start time (`HH:MM:SS`) |
+| `timelen` | Duration in seconds |
+| `streamType` | `main` or `sub` (NVR may only serve main for playback) |
+| `action` | Must be `playback` |
 
-This standalone script captures a live snapshot, saves it, and searches for recordings in a time range:
+:::note
+The parameter order matters — some NVR firmware versions will hang if the parameters are reordered. Use the exact order shown above: `chID`, `date`, `time`, `timelen`, `streamType`, `action`.
+:::
+
+### Exporting Recorded Video Clips
+
+Use FFmpeg with the RTSP playback URL to export recorded video segments to MP4 files. The `-c:v copy` flag copies the H.264/H.265 stream as-is with no re-encoding — fast and lossless:
+
+```bash
+ffmpeg -rtsp_transport tcp -stimeout 5000000 \
+  -i "rtsp://admin:password@192.168.0.50:554/chID=1&date=2026-04-02&time=11:00:00&timelen=10&streamType=main&action=playback" \
+  -c:v copy -an -t 10 -y ch1_2026-04-02_11-00-00_10s.mp4
+```
+
+| Flag | Purpose |
+|------|---------|
+| `-rtsp_transport tcp` | Use TCP for reliable transport |
+| `-stimeout 5000000` | Auto-stop after 5 seconds of no data (prevents hanging) |
+| `-c:v copy` | Copy video stream as-is — no re-encoding |
+| `-an` | Drop audio (NVR audio is PCM mu-law which is incompatible with MP4) |
+| `-t 10` | Stop after 10 seconds of output |
+| `-y` | Overwrite output file without prompting |
+
+## Quick Start Examples
+
+### Example 1: Snapshot Capture & Recording Search
+
+This script captures a live snapshot and searches for recordings:
 
 ```python
 #!/usr/bin/env python3
-"""Snapshot Capture & Recording Search — Viewtron IP Camera API
-
-Demonstrates:
-1. Capturing a live JPEG snapshot via GetSnapshot
-2. Capturing a snapshot by time via GetSnapshotByTime
-3. Searching for recorded video segments via SearchByTime
-"""
+"""Snapshot Capture & Recording Search — Viewtron IP Camera API"""
 
 import requests
 import xmltodict
 import base64
 import os
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 
 # pip install requests xmltodict
 
-# Camera/NVR connection settings
-HOST = "192.168.0.147"
+HOST = "192.168.0.50"
 USER = "admin"
 PASS = "password123"
 CHANNEL = 1
-
 IMG_DIR = "snapshots"
 os.makedirs(IMG_DIR, exist_ok=True)
 
@@ -160,82 +186,35 @@ os.makedirs(IMG_DIR, exist_ok=True)
 def capture_live_snapshot(channel=1):
     """Capture a live JPEG snapshot from the camera."""
     url = f"http://{HOST}/GetSnapshot/{channel}"
-    try:
-        r = requests.get(url, auth=(USER, PASS), timeout=10)
-        if r.status_code == 200:
-            content_type = r.headers.get('Content-Type', '')
-            ts = dt.now().strftime('%Y%m%d_%H%M%S')
-
-            if 'image/jpeg' in content_type:
-                # v1.9: raw JPEG response
-                path = os.path.join(IMG_DIR, f"snapshot_ch{channel}_{ts}.jpg")
-                with open(path, 'wb') as f:
-                    f.write(r.content)
-                print(f"Snapshot saved: {path} ({len(r.content):,} bytes)")
-                return path
-
-            elif 'xml' in content_type:
-                # v2.0: base64 in XML
-                data = xmltodict.parse(r.text)
-                config = data.get('config', {})
-                img_data = config.get('downloadOneImage', {})
-                b64 = img_data.get('sourceBase64Data', '')
-                if b64:
-                    path = os.path.join(IMG_DIR, f"snapshot_ch{channel}_{ts}.jpg")
-                    with open(path, 'wb') as f:
-                        f.write(base64.b64decode(b64))
-                    print(f"Snapshot saved: {path}")
-                    return path
-
+    r = requests.get(url, auth=(USER, PASS), timeout=10)
+    if r.status_code != 200:
         print(f"Snapshot failed: HTTP {r.status_code}")
-    except Exception as e:
-        print(f"Snapshot error: {e}")
-    return None
+        return None
+
+    ts = dt.now().strftime('%Y%m%d_%H%M%S')
+    content_type = r.headers.get('Content-Type', '')
+
+    if 'image/jpeg' in content_type:
+        # v1.9: raw JPEG response
+        path = os.path.join(IMG_DIR, f"snapshot_ch{channel}_{ts}.jpg")
+        with open(path, 'wb') as f:
+            f.write(r.content)
+    elif 'xml' in content_type:
+        # v2.0: base64 in XML
+        data = xmltodict.parse(r.text)
+        b64 = data.get('config', {}).get('downloadOneImage', {}).get('sourceBase64Data', '')
+        if not b64:
+            print("No image data in response")
+            return None
+        path = os.path.join(IMG_DIR, f"snapshot_ch{channel}_{ts}.jpg")
+        with open(path, 'wb') as f:
+            f.write(base64.b64decode(b64))
+
+    print(f"Snapshot saved: {path}")
+    return path
 
 
-def capture_snapshot_by_time(channel=1, time_str="2024-08-23 15:07:28"):
-    """Retrieve a stored snapshot for a specific date and time."""
-    url = f"http://{HOST}/GetSnapshotByTime/{channel}"
-    xml_body = (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<config version="2.0.0" xmlns="http://www.ipc.com/ver10">\n'
-        f'  <search><time><![CDATA[{time_str}]]></time><length>10</length></search>\n'
-        '</config>'
-    )
-    try:
-        r = requests.post(url, data=xml_body, auth=(USER, PASS),
-                          headers={'Content-Type': 'application/xml'},
-                          timeout=10)
-        if r.status_code == 200:
-            content_type = r.headers.get('Content-Type', '')
-            safe_time = time_str.replace(' ', '_').replace(':', '-')
-
-            if 'image/jpeg' in content_type:
-                path = os.path.join(IMG_DIR, f"snapshot_by_time_{safe_time}.jpg")
-                with open(path, 'wb') as f:
-                    f.write(r.content)
-                print(f"Snapshot by time saved: {path} ({len(r.content):,} bytes)")
-                return path
-
-            elif 'xml' in content_type:
-                data = xmltodict.parse(r.text)
-                config = data.get('config', {})
-                img_data = config.get('downloadOneImage', {})
-                b64 = img_data.get('sourceBase64Data', '')
-                if b64:
-                    path = os.path.join(IMG_DIR, f"snapshot_by_time_{safe_time}.jpg")
-                    with open(path, 'wb') as f:
-                        f.write(base64.b64decode(b64))
-                    print(f"Snapshot by time saved: {path}")
-                    return path
-
-        print(f"Snapshot by time failed: HTTP {r.status_code}")
-    except Exception as e:
-        print(f"Snapshot by time error: {e}")
-    return None
-
-
-def search_recordings(channel=1, start="2024-08-23 00:00:00", end="2024-08-23 23:59:59"):
+def search_recordings(channel=1, start="2026-04-02 00:00:00", end="2026-04-02 23:59:59"):
     """Search for recorded video segments in a time range."""
     url = f"http://{HOST}/SearchByTime/{channel}"
     xml_body = (
@@ -244,86 +223,190 @@ def search_recordings(channel=1, start="2024-08-23 00:00:00", end="2024-08-23 23
         '  <search>\n'
         '    <recTypes type="list">\n'
         '      <itemType type="recType"></itemType>\n'
-        '      <item>manual</item>\n'
-        '      <item>schedule</item>\n'
-        '      <item>motion</item>\n'
-        '      <item>sensor</item>\n'
-        '      <item>intel detection</item>\n'
+        '      <item>manual</item><item>schedule</item>\n'
+        '      <item>motion</item><item>intel detection</item>\n'
         '    </recTypes>\n'
         f'    <starttime type="string"><![CDATA[{start}]]></starttime>\n'
         f'    <endtime type="string"><![CDATA[{end}]]></endtime>\n'
         '  </search>\n'
         '</config>'
     )
-    try:
-        r = requests.post(url, data=xml_body, auth=(USER, PASS),
-                          headers={'Content-Type': 'application/xml'},
-                          timeout=10)
-        if r.status_code == 200:
-            print(f"\nRecording search results ({start} to {end}):")
-            print(r.text[:2000])  # Print first 2000 chars of response
-        else:
-            print(f"Search failed: HTTP {r.status_code}")
-    except Exception as e:
-        print(f"Search error: {e}")
-
-
-def get_record_types():
-    """Get supported recording types."""
-    url = f"http://{HOST}/GetRecordType"
-    try:
-        r = requests.get(url, auth=(USER, PASS), timeout=10)
-        if r.status_code == 200:
-            data = xmltodict.parse(r.text)
-            config = data.get('config', {})
-            caps = config.get('recTypeCaps', {})
-            items = caps.get('item', [])
-            if not isinstance(items, list):
-                items = [items]
-            print(f"Supported recording types: {', '.join(items)}")
-            return items
-        print(f"GetRecordType failed: HTTP {r.status_code}")
-    except Exception as e:
-        print(f"GetRecordType error: {e}")
-    return []
+    r = requests.post(url, data=xml_body, auth=(USER, PASS),
+                      headers={'Content-Type': 'application/xml'}, timeout=10)
+    if r.status_code == 200:
+        print(f"Recording search results ({start} to {end}):")
+        print(r.text[:2000])
+    else:
+        print(f"Search failed: HTTP {r.status_code}")
 
 
 if __name__ == '__main__':
-    print(f"Viewtron Snapshot & Recording Tool")
-    print(f"Target: {HOST} (Channel {CHANNEL})")
-    print(f"Snapshots will be saved to {IMG_DIR}/\n")
+    print(f"Target: {HOST} (Channel {CHANNEL})\n")
 
-    # 1. Get supported recording types
-    print("=" * 50)
-    print("Step 1: Get supported recording types")
-    get_record_types()
-
-    # 2. Capture a live snapshot
-    print("\n" + "=" * 50)
-    print("Step 2: Capture live snapshot")
+    print("Capturing live snapshot...")
     capture_live_snapshot(CHANNEL)
 
-    # 3. Search for recordings in the last 24 hours
-    print("\n" + "=" * 50)
-    print("Step 3: Search recordings")
-    from datetime import timedelta
+    print("\nSearching recordings (last 24 hours)...")
     now = dt.now()
-    yesterday = now - timedelta(days=1)
     search_recordings(
         channel=CHANNEL,
-        start=yesterday.strftime('%Y-%m-%d %H:%M:%S'),
+        start=(now - timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S'),
         end=now.strftime('%Y-%m-%d %H:%M:%S'),
     )
+```
+
+### Example 2: NVR Clip Export Tool
+
+This script exports recorded video clips from the NVR using the RTSP playback URL and FFmpeg. It copies the video stream as-is with no re-encoding.
+
+```python
+#!/usr/bin/env python3
+"""
+NVR Clip Export Tool — Viewtron IP Camera API
+
+Exports a recorded video clip from the NVR via RTSP playback.
+Uses FFmpeg with -c:v copy for fast, lossless export.
+
+Usage:
+    python3 clip_export.py -c 1 -s "2026-04-02 11:00:00" -d 10
+    python3 clip_export.py -c 1 -s "2026-04-02 11:00:00" -d 30 -o /tmp/clips/
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+import time
+from datetime import datetime
+
+# NVR connection settings
+NVR_IP = "192.168.0.50"
+NVR_USER = "admin"
+NVR_PASS = "password123"
+RTSP_PORT = 554
+
+
+def build_playback_url(channel_id, date_str, time_str, duration):
+    """Build the RTSP playback URL for recorded footage."""
+    return (
+        f"rtsp://{NVR_USER}:{NVR_PASS}"
+        f"@{NVR_IP}:{RTSP_PORT}"
+        f"/chID={channel_id}"
+        f"&date={date_str}"
+        f"&time={time_str}"
+        f"&timelen={duration}"
+        f"&streamType=main"
+        f"&action=playback"
+    )
+
+
+def export_clip(channel_id, start_dt, duration, output_dir):
+    """Pull a recorded clip from the NVR and save to MP4."""
+    date_str = start_dt.strftime('%Y-%m-%d')
+    time_str = start_dt.strftime('%H:%M:%S')
+    rtsp_url = build_playback_url(channel_id, date_str, time_str, duration)
+
+    # Build output filename
+    ts_slug = start_dt.strftime('%Y-%m-%d_%H-%M-%S')
+    filename = f"ch{channel_id}_{ts_slug}_{duration}s.mp4"
+    output_path = os.path.join(output_dir, filename)
+
+    # FFmpeg command — copy video as-is, no audio, auto-stop
+    cmd = [
+        'ffmpeg',
+        '-rtsp_transport', 'tcp',
+        '-stimeout', '5000000',
+        '-i', rtsp_url,
+        '-t', str(duration),
+        '-c:v', 'copy',
+        '-an',
+        '-y',
+        output_path,
+    ]
+
+    print(f"Exporting: channel {channel_id}, {date_str} {time_str}, {duration}s")
+    print(f"Output: {output_path}")
+
+    t0 = time.time()
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    elapsed = time.time() - t0
+
+    if result.returncode != 0:
+        print(f"FFmpeg failed (exit {result.returncode}):")
+        print(result.stderr[-500:] if len(result.stderr) > 500 else result.stderr)
+        sys.exit(1)
+
+    # Verify output with ffprobe
+    probe = subprocess.run(
+        ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+         '-show_entries', 'stream=width,height,r_frame_rate,codec_name',
+         '-of', 'default=noprint_wrappers=1', output_path],
+        capture_output=True, text=True
+    )
+    size_mb = os.path.getsize(output_path) / (1024 * 1024)
+
+    print(f"\nExport complete in {elapsed:.1f}s")
+    print(probe.stdout.strip())
+    print(f"File size: {size_mb:.2f} MB")
+
+    return output_path
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Export recorded video clips from Viewtron NVR',
+        epilog='Example: python3 clip_export.py -c 1 -s "2026-04-02 11:00:00" -d 10'
+    )
+    parser.add_argument('-c', '--channel', type=int, required=True,
+                        help='NVR channel ID (1-based)')
+    parser.add_argument('-s', '--start', required=True,
+                        help='Start datetime: "YYYY-MM-DD HH:MM:SS"')
+    parser.add_argument('-d', '--duration', type=int, default=10,
+                        help='Clip duration in seconds (default: 10, max: 300)')
+    parser.add_argument('-o', '--output-dir', default='.',
+                        help='Output directory (default: current directory)')
+
+    args = parser.parse_args()
+
+    try:
+        start_dt = datetime.strptime(args.start, '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        print('Error: Use format "YYYY-MM-DD HH:MM:SS"')
+        sys.exit(1)
+
+    if args.duration < 1 or args.duration > 300:
+        print('Error: Duration must be between 1 and 300 seconds')
+        sys.exit(1)
+
+    os.makedirs(args.output_dir, exist_ok=True)
+    export_clip(args.channel, start_dt, args.duration, args.output_dir)
+
+
+if __name__ == '__main__':
+    main()
 ```
 
 **To run:**
 
 ```bash
-pip install requests xmltodict
-python3 snapshot_tool.py
+# Export a 10-second clip from channel 1
+python3 clip_export.py -c 1 -s "2026-04-02 11:00:00" -d 10
+
+# Export to a specific directory
+python3 clip_export.py -c 1 -s "2026-04-02 11:00:00" -d 30 -o /tmp/clips/
 ```
 
-Update `HOST`, `USER`, and `PASS` with your camera or NVR's IP address and credentials.
+:::tip Advanced: Downscaling During Export
+If you need the exported clip at a different resolution (e.g., to match a substream for AI processing), replace `-c:v copy` with re-encoding flags:
+
+```bash
+ffmpeg -rtsp_transport tcp -stimeout 5000000 \
+  -i "rtsp://..." \
+  -t 10 -vf scale=1280:720 -r 15 -c:v libx265 -crf 18 -an -y output.mp4
+```
+
+This re-encodes the video and is slower, but gives you full control over resolution, frame rate, and codec.
+:::
 
 ## Relevant API Endpoints
 
