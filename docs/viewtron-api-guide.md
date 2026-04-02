@@ -1,12 +1,16 @@
 # Viewtron NVR and IP Security Camera API Guide
 
+> **Browsable documentation site:** [videos.cctvcamerapros.com/developer](https://videos.cctvcamerapros.com/developer/) — the same API documentation organized into individual pages with search, navigation, and working code examples.
+>
+> This single-file reference contains the complete API documentation for quick searching and AI assistant integration.
+
 > **Published by CCTV Camera Pros**
 > https://www.cctvcamerapros.com
 >
 > **Technical Contact:** Mike Haldas, Co-Founder CCTV Camera Pros
-> 
+>
 > **Development & Consultation** mike@viewtron.com | 561-433-8488 ext. 86
-> 
+>
 > **Python API Server:** https://github.com/mikehaldas/IP-Camera-API
 >
 > **Support Forum:**

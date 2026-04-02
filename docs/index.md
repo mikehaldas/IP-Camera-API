@@ -9,6 +9,8 @@ keywords:
   - viewtron api
   - camera HTTP API
   - ndaa compliant camera with api
+  - open api security camera
+  - ip camera sdk
 slug: /
 ---
 
@@ -20,20 +22,40 @@ All AI inference runs on the camera hardware — no cloud service, external soft
 
 ## What You Can Do
 
-- **Query device status** — model info, firmware version, disk capacity, channel configuration
-- **Capture snapshots** — live JPEG snapshots and time-based recording search
+- **Receive real-time AI detection webhooks** — HTTP POST events when cameras detect humans, vehicles, faces, or license plates, with snapshot images and bounding box coordinates
 - **Control PTZ cameras** — pan, tilt, zoom, focus, presets, cruise tours
-- **Configure AI detection** — intrusion zones, line crossing, face detection, LPR, people counting
-- **Receive real-time webhooks** — HTTP POST events when AI detections occur, with images and bounding boxes
-- **Track objects continuously** — real-time target position data via `traject` streaming
+- **Track objects continuously** — real-time target position data via `traject` streaming at ~7 updates/sec
+- **Read and capture license plates** — LPR with plate database management and gate access control via Wiegand
+- **Detect and recognize faces** — face detection with attributes (age, sex, glasses, mask) and face matching
+- **Count people and vehicles** — entrance/exit counting by line or area with statistics
+- **Configure AI detection zones** — intrusion zones, line crossing, region entry/exit, loitering, parking violations
+- **Capture snapshots** — live JPEG snapshots and time-based recording search via RTSP
 - **Control alarm outputs** — trigger relays, sirens, and strobe lights programmatically
+- **Query device status** — model info, firmware version, disk capacity, channel configuration
+
+## Quick Example
+
+```python
+import requests
+from requests.auth import HTTPBasicAuth
+
+# Query camera info
+response = requests.get(
+    "http://192.168.0.50/GetDeviceInfo",
+    auth=HTTPBasicAuth("admin", "password123")
+)
+print(response.text)
+
+# Move a PTZ camera
+requests.get(
+    "http://192.168.0.50/PtzControl/1/ZoomIn",
+    auth=HTTPBasicAuth("admin", "password123")
+)
+```
 
 ## Applicable Products
 
-| Product Line | Description |
-|-------------|-------------|
-| [Viewtron AI Security Cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm) | IP cameras with built-in AI — human detection, vehicle detection, face recognition, LPR, auto-tracking PTZ |
-| [Viewtron IP Camera NVRs](https://www.cctvcamerapros.com/IP-Camera-NVRs-s/1472.htm) | Network video recorders with built-in PoE, AI detection management, and HTTP POST event forwarding |
+All [Viewtron IP cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm) and [Viewtron NVRs](https://www.cctvcamerapros.com/IP-Camera-NVRs-s/1472.htm) support this API. See [Supported Products](/docs/supported-products) for a complete list with per-product API capabilities.
 
 ## Quick Start
 
@@ -44,6 +66,14 @@ All AI inference runs on the camera hardware — no cloud service, external soft
 
 ## Resources
 
-- **Python API Server** — [github.com/mikehaldas/IP-Camera-API](https://github.com/mikehaldas/IP-Camera-API)
+- **Python API Server & Library** — [github.com/mikehaldas/IP-Camera-API](https://github.com/mikehaldas/IP-Camera-API) — working webhook receiver with the `viewtron.py` abstraction library that handles all API version differences
+- **Markdown Documentation** — all documentation pages are available as Markdown files in the [GitHub docs directory](https://github.com/mikehaldas/IP-Camera-API/tree/main/docs) for easy integration with AI coding assistants and automated tools
+- **Single-File Reference** — the complete API documentation in [one searchable file](https://github.com/mikehaldas/IP-Camera-API/blob/main/docs/viewtron-api-guide.md) for quick reference and AI assistant ingestion
 - **Support Forum** — [NVR Webhook Setup Guide](https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks)
-- **Questions & Development Inquiries** — mike@viewtron.com | 561-433-8488
+
+## Questions & Development Inquiries
+
+- **Email:** mike@viewtron.com
+- **Phone:** 561-433-8488
+
+Mike Haldas is available for questions, consultation, and custom software development for Viewtron API related projects. Email details about your project to mike@viewtron.com.
