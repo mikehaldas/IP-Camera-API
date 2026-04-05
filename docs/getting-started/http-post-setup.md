@@ -33,17 +33,17 @@ Open a web browser and navigate to your camera's IP address. Log in with adminis
 
 In the left menu, click **Network**. On the Network page, click the **HTTP POST** tab.
 
-![Navigate to Network > HTTP POST](/img/ipc-network-menu.jpg)
+![Navigate to Network > HTTP POST](https://videos.cctvcamerapros.com/wp-content/files/IP-Camera-HTTP-Post.jpg)
 
 ### Step 3: Edit the Configuration
 
 The HTTP POST screen shows a table of configured server destinations. Click the **Edit** button to modify the configuration.
 
-![HTTP POST server list with Edit button](/img/ipc-http-post-edit.jpg)
+![HTTP POST server list with Edit button](https://videos.cctvcamerapros.com/wp-content/files/http-post-server-add.jpg)
 
 Click **Add** to create a new server entry. Fill in your API server details:
 
-![Edit HTTP POST server settings](/img/ipc-http-post-settings.jpg)
+![Edit HTTP POST server settings](https://videos.cctvcamerapros.com/wp-content/files/http-post-settings.jpg)
 
 Configure the following settings:
 
@@ -115,7 +115,7 @@ Navigate to **Network** in the top menu bar, then click **HTTP POST** in the sub
 
 Check **Enable** to activate HTTP POST, then enter your server details:
 
-![NVR HTTP POST Configuration](/img/nvr-http-post-config.jpg)
+![NVR HTTP POST Configuration](https://videos.cctvcamerapros.com/wp-content/files/IP-Camera-API-NVR-setup.jpg)
 
 | Setting | Description | Example |
 |---------|-------------|---------|
@@ -143,7 +143,7 @@ Under **Attaching Image**, choose what images to include with forwarded events:
 
 Click the **Configure** button next to **Event Type** to open the event selection dialog:
 
-![NVR Event Type Selection](/img/nvr-http-post-events.jpg)
+![NVR Event Type Selection](https://videos.cctvcamerapros.com/wp-content/files/IP-Camera-API-enable-events.jpg)
 
 The left **Event** column shows all available event types. The right **Send Event** column shows which events will be forwarded via HTTP POST.
 
