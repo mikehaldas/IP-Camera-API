@@ -3,3 +3,5 @@ __pycache__/
 images/
 raw_posts/
 events.csv
+ha_bridge.yaml
+ha_images/

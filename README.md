@@ -100,6 +100,47 @@ Each post includes the target's bounding box coordinates, target type (person/ca
 - **Real-time position tracking** — Track a target's movement through the frame using bounding box coordinates (normalized 0-10000 range).
 - **Custom alarm logic** — Build rules based on where a target is, how long it stays, or how it moves — not just whether it triggered a zone.
 
+## Home Assistant Bridge
+
+The **Viewtron → Home Assistant Bridge** (`ha_bridge.py`) receives camera events and forwards them as JSON to Home Assistant webhook automations. No Frigate, no Coral TPU, no MQTT broker — the camera does the AI detection and the bridge sends the results straight to HA.
+
+```
+Viewtron Camera/NVR → HTTP POST (XML) → ha_bridge.py → HTTP POST (JSON) → HA Webhook → Automation
+```
+
+**What you can automate:**
+- Garage/gate opens when your plate is recognized (LPR → whitelist check → relay)
+- Notification with plate number when unknown vehicle arrives
+- Driveway lights turn on when person detected at night
+- Doorbell notification with face attributes (age, sex)
+
+**Setup:**
+1. Copy `ha_bridge.yaml.example` to `ha_bridge.yaml` and set your HA URL and webhook IDs
+2. Create webhook automations in HA (see `ha_automations.yaml` for examples)
+3. Point your camera/NVR HTTP Post at the bridge IP and port
+4. Run: `python3 ha_bridge.py`
+
+**JSON payload sent to HA:**
+```json
+{
+  "event_type": "vehicle",
+  "event_description": "License Plate Detection",
+  "camera_name": "Driveway LPR",
+  "camera_ip": "192.168.0.20",
+  "timestamp": "2026-04-06 12:30:00",
+  "plate_number": "ABC1234",
+  "plate_authorized": true,
+  "vehicle": {
+    "type": "sedan",
+    "color": "white",
+    "brand": "Toyota",
+    "model": "Toyota_Camry"
+  }
+}
+```
+
+See [`ha_automations.yaml`](ha_automations.yaml) for complete Home Assistant automation examples.
+
 ## How It Works
 
 1. Configure your IP camera or NVR to send HTTP Posts to this server's IP and port
