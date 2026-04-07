@@ -1,6 +1,6 @@
 """
-Viewtron IP Camera API Client — manages sessions and provides simple methods
-for camera configuration and plate database management.
+Viewtron IP Camera API Client — control cameras and manage plate databases
+using Basic HTTP authentication.
 
 viewtron.py handles INBOUND events (camera sends HTTP POST to your server).
 viewtron_client.py handles OUTBOUND calls (your app sends commands to the camera).
@@ -9,12 +9,12 @@ Usage:
     from viewtron_client import ViewtronCamera
 
     camera = ViewtronCamera("192.168.0.20", "admin", "password")
-    camera.login()
 
     # Plate management
+    camera.add_plate("ABC1234")
     plates = camera.get_plates()
-    camera.add_plate("ABC123", owner="Mike", list_type="whiteList")
-    camera.delete_plate(key_id=1775415327)
+    camera.modify_plate("ABC1234", owner="Mike", telephone="555-1234")
+    camera.delete_plate("ABC1234")
 
     # Device info
     info = camera.get_device_info()
@@ -22,14 +22,15 @@ Usage:
 You can find Viewtron IP cameras at https://www.Viewtron.com
 """
 
-import hashlib
 import requests
 import xmltodict
 import re
 
 
 class ViewtronCamera:
-    """Client for Viewtron IP camera API with automatic session management."""
+    """Client for Viewtron IP camera API with Basic HTTP authentication."""
+
+    CONFIG_WRAPPER = '<?xml version="1.0" encoding="UTF-8"?><config version="2.1.0" xmlns="http://www.ipc.com/ver10">{body}</config>'
 
     def __init__(self, host, username, password, port=80):
         self.host = host
@@ -37,278 +38,200 @@ class ViewtronCamera:
         self.username = username
         self.password = password
         self.base_url = f"http://{host}:{port}" if port != 80 else f"http://{host}"
-        self.session_id = None
-        self.token = None
 
-    # ========================= SESSION MANAGEMENT =========================
-
-    def login(self):
-        """Authenticate with the camera. Called automatically on first API call."""
-        # Step 1: Request login to get session ID and nonce
-        req_xml = (
-            f'<?xml version="1.0" encoding="utf-8"?>'
-            f'<config><userName>{self.username}</userName></config>'
-        )
-        resp = self._post_raw("/ReqLogin_I", req_xml)
-        parsed = xmltodict.parse(resp)
-        config = parsed.get('config', {})
-
-        if config.get('@status') != 'success':
-            raise ConnectionError(f"ReqLogin failed: {resp}")
-
-        req_session = self._extract_cdata(config.get('sessionId', ''))
-        nonce = self._extract_cdata(config.get('nonce', ''))
-
-        # Step 2: Compute hash — SHA512( MD5(password).upper() + nonce )
-        md5_upper = hashlib.md5(self.password.encode()).hexdigest().upper()
-        hash_token = hashlib.sha512((md5_upper + nonce).encode()).hexdigest()
-
-        # Step 3: DoLogin
-        login_xml = (
-            f'<?xml version="1.0" encoding="UTF-8"?>'
-            f'<config version="1.7" xmlns="http://www.ipc.com/ver10">'
-            f'<Authentication type="authenticationMode">Token</Authentication>'
-            f'<username type="string"><![CDATA[{self.username}]]></username>'
-            f'<password type="string"><![CDATA[{hash_token}]]></password>'
-            f'</config>'
-            f'<sessionId type="string"><![CDATA[{req_session}]]></sessionId>'
-        )
-        resp = self._post_raw("/DoLogin_I", login_xml)
-        parsed = xmltodict.parse(resp)
-        config = parsed.get('config', {})
-
-        if config.get('@status') != 'success':
-            error = config.get('@errorCode', 'Unknown error')
-            raise ConnectionError(f"DoLogin failed: {error}")
-
-        self.session_id = self._extract_cdata(config.get('sessionId', ''))
-        self.token = self._extract_cdata(config.get('token', ''))
-        return True
-
-    def logout(self):
-        """End the session."""
-        if self.session_id:
-            try:
-                self._post_authenticated("/DoLogout_I", "<config></config>")
-            except Exception:
-                pass
-            self.session_id = None
-            self.token = None
-
-    def _ensure_session(self):
-        """Login if not already authenticated."""
-        if not self.session_id or not self.token:
-            self.login()
-
-    def _post_raw(self, endpoint, body):
-        """Send a raw POST without session auth."""
+    def _post(self, endpoint, body_xml):
+        """Send a POST with Basic auth. Returns parsed XML as dict."""
+        xml = self.CONFIG_WRAPPER.format(body=body_xml)
         resp = requests.post(
             f"{self.base_url}{endpoint}",
-            data=body.encode('utf-8'),
-            headers={
-                'Content-Type': 'text/plain;charset=UTF-8',
-            },
-            cookies={'Secure': '', 'lang_type': 'en-us'},
+            data=xml.encode("utf-8"),
+            headers={"Content-Type": "application/xml"},
+            auth=(self.username, self.password),
             timeout=10,
         )
-        return resp.text
+        # Strip namespace for easier parsing
+        text = re.sub(r' xmlns="[^"]*"', '', resp.text)
+        return xmltodict.parse(text)
 
-    def _post_authenticated(self, endpoint, config_xml):
-        """Send a POST with session ID and token appended after </config>."""
-        self._ensure_session()
-        body = (
-            f'{config_xml}'
-            f'<sessionId type="string"><![CDATA[{self.session_id}]]></sessionId>'
-            f'<token type="string"><![CDATA[{self.token}]]></token>'
-        )
-        resp = self._post_raw(endpoint, body)
-
-        # If auth failed (Unauthorized or session expired error 499), re-login and retry
-        if 'Unauthorized' in resp or 'errorCode="499"' in resp:
-            self.login()
-            body = (
-                f'{config_xml}'
-                f'<sessionId type="string"><![CDATA[{self.session_id}]]></sessionId>'
-                f'<token type="string"><![CDATA[{self.token}]]></token>'
-            )
-            resp = self._post_raw(endpoint, body)
-
-        return resp
-
-    @staticmethod
-    def _extract_cdata(value):
-        """Extract text from xmltodict parsed CDATA or dict values."""
-        if value is None:
-            return ''
-        if isinstance(value, dict):
-            return str(value.get('#text', '') or value.get('value', '') or '').strip()
-        return str(value).strip()
+    def _check_error(self, parsed, operation):
+        """Check parsed response for errors. Raises RuntimeError on failure."""
+        config = parsed.get("config", {})
+        error_code = config.get("@errorCode", "0")
+        if error_code != "0":
+            error_desc = config.get("@errorDesc", "Unknown error")
+            raise RuntimeError(f"{operation} failed: {error_desc} (code {error_code})")
 
     # ========================= DEVICE INFO =========================
 
     def get_device_info(self):
-        """Get camera device information using session auth."""
-        config_xml = '<?xml version="1.0" encoding="UTF-8"?><config></config>'
-        resp = self._post_authenticated("/GetDeviceInfo_I", config_xml)
-        parsed = xmltodict.parse(resp)
-        info = parsed.get('config', {}).get('deviceInfo', {})
-        return {k: self._extract_cdata(v) for k, v in info.items()}
+        """Get camera device information.
+
+        Returns:
+            dict with keys like 'deviceName', 'model', 'firmwareVersion', etc.
+        """
+        resp = requests.get(
+            f"{self.base_url}/GetDeviceInfo",
+            auth=(self.username, self.password),
+            timeout=10,
+        )
+        text = re.sub(r' xmlns="[^"]*"', '', resp.text)
+        parsed = xmltodict.parse(text)
+        info = parsed.get("config", {}).get("deviceInfo", {})
+        return {k: str(v.get("#text", v) if isinstance(v, dict) else v).strip()
+                for k, v in info.items()}
 
     # ========================= PLATE DATABASE =========================
 
-    def get_plates(self, list_type="allList", page=0, page_size=10):
+    def add_plate(self, plate_number, group_id="1"):
+        """Add a plate to the camera database.
+
+        Args:
+            plate_number: The license plate (e.g., "ABC1234")
+            group_id: Group ID ("1" = default/allow list)
+
+        Returns:
+            True if successful
+        """
+        body = (
+            f'<licensePlates type="list" maxCount="100" count="1">'
+            f"<item>"
+            f"<index>1</index>"
+            f"<licensePlateNumber><![CDATA[{plate_number}]]></licensePlateNumber>"
+            f"<groupId><![CDATA[{group_id}]]></groupId>"
+            f"</item>"
+            f"</licensePlates>"
+        )
+        parsed = self._post("/AddLicensePlates", body)
+        # Check per-item error code
+        config = parsed.get("config", {})
+        reply = config.get("licensePlatesReply", {})
+        item = reply.get("item", {})
+        if isinstance(item, list):
+            item = item[0]
+        error_code = item.get("errorCode", {})
+        code = error_code.get("#text", str(error_code)) if isinstance(error_code, dict) else str(error_code)
+        if code != "0":
+            raise RuntimeError(f"AddLicensePlates failed: error code {code}")
+        return True
+
+    def add_plates(self, plate_numbers, group_id="1"):
+        """Add multiple plates to the camera database.
+
+        Args:
+            plate_numbers: List of plate strings
+            group_id: Group ID ("1" = default/allow list)
+
+        Returns:
+            True if all successful
+        """
+        items = ""
+        for i, plate in enumerate(plate_numbers, 1):
+            items += (
+                f"<item>"
+                f"<index>{i}</index>"
+                f"<licensePlateNumber><![CDATA[{plate}]]></licensePlateNumber>"
+                f"<groupId><![CDATA[{group_id}]]></groupId>"
+                f"</item>"
+            )
+        body = f'<licensePlates type="list" maxCount="100" count="{len(plate_numbers)}">{items}</licensePlates>'
+        parsed = self._post("/AddLicensePlates", body)
+        self._check_error(parsed, "AddLicensePlates")
+        return True
+
+    def get_plates(self, max_results=50, offset=1, group_id="1"):
         """Query the plate database.
 
         Args:
-            list_type: "allList", "whiteList", "blackList", or "strangerList"
-            page: Page index (0-based)
-            page_size: Results per page
+            max_results: Maximum plates to return
+            offset: Starting position (1-based — first plate is offset 1)
+            group_id: Group ID to query
 
         Returns:
-            List of plate dicts with keys: key_id, plate_number, begin_time,
-            end_time, owner, list_type, plate_color, plate_type, telephone
+            List of plate dicts with keys: plate_number, group_id,
+            begin_time, end_time, owner, telephone
         """
-        config_xml = (
-            f'<?xml version="1.0" encoding="UTF-8"?>'
-            f'<config>'
-            f'<searchFilter>'
-            f'<pageIndex type ="unit32">{page}</pageIndex>'
-            f'<pageSize>{page_size}</pageSize>'
-            f'<listType>{list_type}</listType>'
-            f'<carPlateNum></carPlateNum>'
-            f'</searchFilter>'
-            f'<dataSensitive type="dataFlag">sensitive</dataSensitive>'
-            f'</config>'
+        body = (
+            f"<searchFilter>"
+            f"<maxResult>{max_results}</maxResult>"
+            f"<resultOffset>{offset}</resultOffset>"
+            f"<groupId><![CDATA[{group_id}]]></groupId>"
+            f"</searchFilter>"
         )
-        resp = self._post_authenticated("/GetVehiclePlate_I", config_xml)
-        # xmltodict can't handle the namespace prefix cleanly, strip it
-        resp_clean = re.sub(r' xmlns="[^"]*"', '', resp)
-        parsed = xmltodict.parse(resp_clean)
-        config = parsed.get('config', {})
-        plates_info = config.get('vehiclePlates', {})
+        parsed = self._post("/GetLicensePlates", body)
+        config = parsed.get("config", {})
 
-        items = plates_info.get('item', [])
+        # Check for "Resources Not Exist" (empty database)
+        if config.get("@errorCode") == "20":
+            return []
+
+        plates_info = config.get("licensePlates", {})
+        items = plates_info.get("item", [])
         if not isinstance(items, list):
             items = [items] if items else []
 
         plates = []
         for item in items:
+            def extract(val):
+                if isinstance(val, dict):
+                    return str(val.get("#text", "") or val.get("value", "")).strip()
+                return str(val).strip() if val else ""
+
             plates.append({
-                'key_id': int(self._extract_cdata(item.get('keyId', '0'))),
-                'plate_number': self._extract_cdata(item.get('carPlateNumber', '')),
-                'begin_time': self._extract_cdata(item.get('beginTime', '')),
-                'end_time': self._extract_cdata(item.get('endTime', '')),
-                'owner': self._extract_cdata(item.get('carOwner', '')),
-                'list_type': self._extract_cdata(item.get('plateItemType', '')),
-                'plate_color': self._extract_cdata(item.get('carPlateColor', '')),
-                'plate_type': self._extract_cdata(item.get('carPlateType', '')),
-                'telephone': self._extract_cdata(item.get('telephone', '')),
+                "plate_number": extract(item.get("licensePlateNumber", "")),
+                "group_id": extract(item.get("groupId", "")),
+                "begin_time": extract(item.get("beginTime", "")),
+                "end_time": extract(item.get("endTime", "")),
+                "owner": extract(item.get("carOwner", "")),
+                "telephone": extract(item.get("telephone", "")),
             })
 
         return plates
 
-    def add_plate(self, plate_number, owner="", list_type="whiteList",
-                  begin_time="2020/01/01 00:00:00", end_time="2030/12/31 23:59:59",
-                  telephone=""):
-        """Add a plate to the database.
+    def modify_plate(self, plate_number, group_id="1", owner=None, telephone=None):
+        """Update an existing plate's details.
 
         Args:
-            plate_number: The license plate (e.g., "ABC123")
-            owner: Vehicle owner name
-            list_type: "whiteList" or "blackList"
-            begin_time: Start of valid period (YYYY/MM/DD HH:MM:SS)
-            end_time: End of valid period (YYYY/MM/DD HH:MM:SS)
-            telephone: Owner phone number
+            plate_number: Plate to modify (must already exist)
+            group_id: Group the plate belongs to
+            owner: New owner name (optional)
+            telephone: New phone number (optional)
 
         Returns:
             True if successful
         """
-        config_xml = (
-            f'<?xml version="1.0" encoding="UTF-8"?>'
-            f'<config>'
-            f'<vehiclePlates type="list" count="1">'
-            f'<item>'
-            f'<carPlateNumber type="string"><![CDATA[{plate_number}]]></carPlateNumber>'
-            f'<beginTime type="string"><![CDATA[{begin_time}]]></beginTime>'
-            f'<endTime type="string"><![CDATA[{end_time}]]></endTime>'
-            f'<carOwner type="string"><![CDATA[{owner}]]></carOwner>'
-            f'<plateItemType type="string">{list_type}</plateItemType>'
-            f'<telephone type="string"><![CDATA[{telephone}]]></telephone>'
-            f'</item>'
-            f'</vehiclePlates>'
-            f'</config>'
+        fields = (
+            f"<licensePlateNumber><![CDATA[{plate_number}]]></licensePlateNumber>"
+            f"<groupId><![CDATA[{group_id}]]></groupId>"
         )
-        resp = self._post_authenticated("/AddVehiclePlate_I", config_xml)
-        if 'errorCode' in resp:
-            parsed = xmltodict.parse(resp)
-            error = parsed.get('config', {}).get('@errorCode', 'Unknown')
-            raise RuntimeError(f"AddVehiclePlate failed: {error}")
+        if owner is not None:
+            fields += f'<carOwner type="string"><![CDATA[{owner}]]></carOwner>'
+        if telephone is not None:
+            fields += f'<telephone type="string"><![CDATA[{telephone}]]></telephone>'
+
+        body = f"<licensePlate>{fields}</licensePlate>"
+        parsed = self._post("/ModifyLicensePlate", body)
+        self._check_error(parsed, "ModifyLicensePlate")
         return True
 
-    def delete_plate(self, key_id):
-        """Delete a plate by its key ID.
+    def delete_plate(self, plate_number, group_id="1"):
+        """Delete a plate from the database.
 
         Args:
-            key_id: The keyId from get_plates() results
+            plate_number: Plate to delete
+            group_id: Group the plate belongs to
 
         Returns:
             True if successful
         """
-        config_xml = (
-            f'<?xml version="1.0" encoding="UTF-8"?>'
-            f'<config>'
-            f'<vehiclePlates>'
-            f'<keyList type="list" count="1">'
-            f'<item><keyId type="unit32">{key_id}</keyId></item>'
-            f'</keyList>'
-            f'<listType>allList</listType>'
-            f'<carPlateNum><![CDATA[]]></carPlateNum>'
-            f'</vehiclePlates>'
-            f'</config>'
+        body = (
+            f"<deleteAction>"
+            f"<licensePlateNumber><![CDATA[{plate_number}]]></licensePlateNumber>"
+            f"<groupId><![CDATA[{group_id}]]></groupId>"
+            f"</deleteAction>"
         )
-        resp = self._post_authenticated("/DeleteVehiclePlate_I", config_xml)
-        if 'errorCode' in resp:
-            parsed = xmltodict.parse(resp)
-            error = parsed.get('config', {}).get('@errorCode', 'Unknown')
-            raise RuntimeError(f"DeleteVehiclePlate failed: {error}")
-        return True
-
-    def delete_plates(self, key_ids):
-        """Delete multiple plates by key IDs.
-
-        Args:
-            key_ids: List of keyId values from get_plates() results
-
-        Returns:
-            True if successful
-        """
-        items = ''.join(f'<item><keyId type="unit32">{kid}</keyId></item>' for kid in key_ids)
-        config_xml = (
-            f'<?xml version="1.0" encoding="UTF-8"?>'
-            f'<config>'
-            f'<vehiclePlates>'
-            f'<keyList type="list" count="{len(key_ids)}">'
-            f'{items}'
-            f'</keyList>'
-            f'<listType>allList</listType>'
-            f'<carPlateNum><![CDATA[]]></carPlateNum>'
-            f'</vehiclePlates>'
-            f'</config>'
-        )
-        resp = self._post_authenticated("/DeleteVehiclePlate_I", config_xml)
-        if 'errorCode' in resp:
-            parsed = xmltodict.parse(resp)
-            error = parsed.get('config', {}).get('@errorCode', 'Unknown')
-            raise RuntimeError(f"DeleteVehiclePlates failed: {error}")
+        parsed = self._post("/DeleteLicensePlate", body)
+        self._check_error(parsed, "DeleteLicensePlate")
         return True
 
     def __repr__(self):
-        status = "connected" if self.session_id else "disconnected"
-        return f"ViewtronCamera({self.host}, {status})"
-
-    def __enter__(self):
-        self.login()
-        return self
-
-    def __exit__(self, *args):
-        self.logout()
+        return f"ViewtronCamera({self.host})"
