@@ -21,7 +21,7 @@ The API also supports managing an on-camera plate database with whitelist and bl
 
 - **Automated gate access control** — open gates and barriers when whitelisted plates are detected, using Wiegand output or webhook-triggered relay
 - **Vehicle access logs** — record every plate read with timestamp, plate image, and authorization status for parking garages, gated communities, or corporate campuses
-- **Visitor management systems** — pre-register expected visitor plates with date ranges using AddVehiclePlate, automatically grant access on arrival
+- **Visitor management systems** — pre-register expected visitor plates with date ranges using AddLicensePlates, automatically grant access on arrival
 - **Blacklist alerting** — receive instant notifications when a blacklisted plate is detected on property
 - **Fleet tracking** — monitor arrival/departure times for company vehicles across multiple camera locations
 - **Law enforcement integration** — feed plate reads into stolen vehicle databases or BOLO systems in real time
@@ -32,7 +32,7 @@ The API also supports managing an on-camera plate database with whitelist and bl
 1. **Install an LPR camera** at the vehicle entry point — position the camera to capture plates at the correct angle and distance
 2. **Configure LPR detection** on the camera — set the plate region (U.S.A, Canada, Europe, etc.), sensitivity, and detection zone
 3. **Enable HTTP POST webhooks** — point the camera or NVR at your server's IP and port
-4. **Manage the plate database** (optional) — add plates to the whitelist or blacklist using the AddVehiclePlate API with date ranges and owner info
+4. **Manage the plate database** (optional) — add plates to the whitelist or blacklist using the AddLicensePlates API with owner info
 5. **Your server receives XML** when a plate is read — the POST includes the plate number, authorization status, plate crop image, and vehicle attributes
 6. **Parse the event** using the [viewtron.py](https://github.com/mikehaldas/IP-Camera-API) library or raw XML parsing
 7. **Take action** — log the plate read, trigger a gate relay, send alerts, or update your database
@@ -302,8 +302,10 @@ Then configure your camera or NVR to send HTTP POST events to `http://<your-serv
 | Endpoint | Purpose | Reference |
 |----------|---------|-----------|
 | GetSmartVehicleConfig | Read LPR detection settings (sensitivity, region, dedup mode) | [LPR Config](/docs/api-reference/smart-detection/license-plate-recognition-config) |
-| AddVehiclePlate | Add plates to whitelist/blacklist with date ranges and owner info | [LPR Config](/docs/api-reference/smart-detection/license-plate-recognition-config) |
-| GetVehiclePlate | Query the plate database with pagination and filters (v2.0 only) | [LPR Config](/docs/api-reference/smart-detection/license-plate-recognition-config) |
+| AddLicensePlates | Add plates to the database | [LPR Config](/docs/api-reference/smart-detection/license-plate-recognition-config#addlicenseplates) |
+| GetLicensePlates | Query the plate database with pagination | [LPR Config](/docs/api-reference/smart-detection/license-plate-recognition-config#getlicenseplates) |
+| ModifyLicensePlate | Update plate details (owner, phone) | [LPR Config](/docs/api-reference/smart-detection/license-plate-recognition-config#modifylicenseplate) |
+| DeleteLicensePlate | Remove a plate from the database | [LPR Config](/docs/api-reference/smart-detection/license-plate-recognition-config#deletelicenseplate) |
 | SetHttpPostConfig | Configure webhook destination | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
 | GetAlarmStatus | Poll current alarm state | [Alarm Status](/docs/api-reference/alarm/alarm-status) |
 

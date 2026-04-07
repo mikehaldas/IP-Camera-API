@@ -12,11 +12,13 @@ sidebar_position: 4
 For a complete walkthrough with code examples, see the [License Plate Recognition](/docs/applications/license-plate-recognition-camera-api) application guide.
 :::
 
-This section covers three endpoints for LPR configuration and plate database management:
+This section covers LPR configuration and plate database management:
 
 - **GetSmartVehicleConfig** — read LPR detection settings
-- **AddVehiclePlate** — add plates to the whitelist/blacklist database
-- **GetVehiclePlate** — search the plate database
+- **AddLicensePlates** — add plates to the database
+- **GetLicensePlates** — query the plate database
+- **ModifyLicensePlate** — update plate details
+- **DeleteLicensePlate** — remove a plate from the database
 
 ---
 
@@ -116,96 +118,246 @@ API v2.0 adds `dedupMode` (deduplication with configurable interval) and `plateM
 
 ---
 
-## AddVehiclePlate
+## Plate Database Management
 
-Adds one or more license plates to the camera's plate database (whitelist, blacklist, or stranger list).
+Manage the on-camera license plate database — add, query, update, and delete plates on the whitelist or blacklist. All endpoints use Basic Authentication.
 
-| Field | Value |
-|-------|-------|
-| **Endpoint** | `/AddVehiclePlate` |
-| **Method** | `POST` |
-| **Products** | IPC |
-
-### Request Example
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<config>
-  <vehiclePlates type="list" count="1">
-    <item>
-      <carPlateNumber type="string"><![CDATA[ABC1234]]></carPlateNumber>
-      <beginTime type="string"><![CDATA[2024/01/01 00:00:00]]></beginTime>
-      <endTime type="string"><![CDATA[2024/12/31 23:59:59]]></endTime>
-      <carOwner type="string"><![CDATA[John Doe]]></carOwner>
-      <plateItemType type="string">whiteList</plateItemType>
-    </item>
-  </vehiclePlates>
-</config>
-```
-
-### Request Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `carPlateNumber` | string (CDATA) | License plate number |
-| `beginTime` | string (CDATA) | Start date/time for plate validity (`YYYY/MM/DD HH:MM:SS`) |
-| `endTime` | string (CDATA) | End date/time for plate validity (`YYYY/MM/DD HH:MM:SS`) |
-| `carOwner` | string (CDATA) | Name of the vehicle owner |
-| `plateItemType` | string | List type: `whiteList`, `blackList`, or `strangerList` |
-
-### Notes
-
-- Multiple plates can be added in a single request by increasing the `count` attribute and adding more `<item>` elements.
-- The `beginTime` and `endTime` fields define the validity window — the plate is only active during this period.
-- Use `whiteList` for authorized vehicles (e.g., gate access) and `blackList` for vehicles that should trigger alerts.
+:::tip Python SDK
+The [viewtron Python SDK](https://pypi.org/project/viewtron/) (`pip install viewtron`) handles all XML formatting automatically. See the [License Plate Recognition](/docs/applications/license-plate-recognition-camera-api) application guide for code examples.
+:::
 
 ---
 
-## GetVehiclePlate
+### AddLicensePlates
 
-Retrieves license plates from the camera's plate database with pagination and filtering.
+Add one or more plates to the camera's database.
 
 | Field | Value |
 |-------|-------|
-| **Endpoint** | `/GetVehiclePlate` |
-| **Method** | `POST` or `GET` |
+| **Endpoint** | `/AddLicensePlates` |
+| **Method** | `POST` |
+| **Auth** | Basic |
 | **Products** | IPC |
 
-:::info v2.0 Only
-This endpoint is available only on API v2.0 firmware.
-:::
-
-### Request Example
+#### Request
 
 ```xml
-<config xmlns="http://www.ipc.com/ver10" version="2.0.0">
-  <vehiclePlates type="list" maxCount="10000" count="1">
-    <searchFilter>
-      <item>
-        <pageIndex type="uint32">0</pageIndex>
-        <pageSize type="uint32">10</pageSize>
-        <listType type="vehicleListTypes">allList</listType>
-        <carPlateNum type="string"></carPlateNum>
-      </item>
-    </searchFilter>
-  </vehiclePlates>
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <licensePlates type="list" maxCount="100" count="1">
+        <item>
+            <index>1</index>
+            <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
+            <groupId><![CDATA[1]]></groupId>
+        </item>
+    </licensePlates>
 </config>
 ```
 
-### Request Parameters
+#### Parameters
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `pageIndex` | uint32 | Page number (0-based) for pagination |
-| `pageSize` | uint32 | Number of results per page |
-| `listType` | vehicleListTypes | Filter by list type: `allList`, `whiteList`, `blackList`, or `strangerList` |
-| `carPlateNum` | string | Filter by plate number (empty string returns all) |
+| `index` | integer | Item index (1-based) |
+| `licensePlateNumber` | string (CDATA) | License plate number |
+| `groupId` | string (CDATA) | Group ID (`1` = default group) |
 
-### Notes
+#### Response (Success)
 
-- The database supports up to 10,000 plates (`maxCount="10000"`).
-- Use `pageIndex` and `pageSize` to paginate through large plate databases.
-- Set `carPlateNum` to a specific plate number to search for a single plate, or leave empty to return all plates matching the `listType` filter.
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <licensePlatesReply>
+        <item>
+            <index type="uint32">1</index>
+            <errorCode type="uint32">0</errorCode>
+        </item>
+    </licensePlatesReply>
+</config>
+```
+
+#### Notes
+
+- Multiple plates can be added in a single request — increase the `count` attribute and add additional `<item>` elements with incrementing `index` values.
+- The camera automatically assigns begin/end validity times. To control these, use `ModifyLicensePlate` after adding.
+
+#### curl Example
+
+```bash
+curl -u admin:password -X POST http://CAMERA_IP/AddLicensePlates \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <licensePlates type="list" maxCount="100" count="1">
+        <item>
+            <index>1</index>
+            <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
+            <groupId><![CDATA[1]]></groupId>
+        </item>
+    </licensePlates>
+</config>'
+```
+
+---
+
+### GetLicensePlates
+
+Query the plate database with pagination.
+
+| Field | Value |
+|-------|-------|
+| **Endpoint** | `/GetLicensePlates` |
+| **Method** | `POST` |
+| **Auth** | Basic |
+| **Products** | IPC |
+
+#### Request
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <searchFilter>
+        <maxResult>10</maxResult>
+        <resultOffset>1</resultOffset>
+        <groupId><![CDATA[1]]></groupId>
+    </searchFilter>
+</config>
+```
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `maxResult` | integer | Maximum number of results to return |
+| `resultOffset` | integer | Starting position (1-based — first plate is offset `1`) |
+| `groupId` | string (CDATA) | Group ID to query (`1` = default group) |
+
+#### Response
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <licensePlates type="list" total="2" count="2">
+        <item>
+            <licensePlateNumber type="string"><![CDATA[ABC1234]]></licensePlateNumber>
+            <groupId type="string"><![CDATA[1]]></groupId>
+            <beginTime type="string"><![CDATA[2026-04-07 09:28:45]]></beginTime>
+            <endTime type="string"><![CDATA[2037-12-30 10:59:59]]></endTime>
+            <licensePlateType type="string"><![CDATA[]]></licensePlateType>
+            <carOwner type="string"><![CDATA[Mike]]></carOwner>
+            <cardNumber type="string"><![CDATA[]]></cardNumber>
+            <telephone type="string"><![CDATA[]]></telephone>
+        </item>
+    </licensePlates>
+</config>
+```
+
+#### Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `licensePlateNumber` | Plate number |
+| `groupId` | Group this plate belongs to |
+| `beginTime` | Start of validity period |
+| `endTime` | End of validity period |
+| `carOwner` | Vehicle owner name |
+| `telephone` | Owner phone number |
+| `cardNumber` | Associated card number |
+| `licensePlateType` | Plate type |
+
+#### Notes
+
+- `resultOffset` is 1-based. Using `0` returns a Range Error.
+- If no plates exist, the response returns `errorCode="20"` with `errorDesc="Resources Not Exist"`.
+
+---
+
+### ModifyLicensePlate
+
+Update an existing plate's details (owner, phone, validity dates).
+
+| Field | Value |
+|-------|-------|
+| **Endpoint** | `/ModifyLicensePlate` |
+| **Method** | `POST` |
+| **Auth** | Basic |
+| **Products** | IPC |
+
+#### Request
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <licensePlate>
+        <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
+        <groupId><![CDATA[1]]></groupId>
+        <carOwner type="string"><![CDATA[John Doe]]></carOwner>
+        <telephone type="string"><![CDATA[555-123-4567]]></telephone>
+    </licensePlate>
+</config>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `licensePlateNumber` | string (CDATA) | Yes | Plate number to modify (must already exist) |
+| `groupId` | string (CDATA) | Yes | Group the plate belongs to |
+| `carOwner` | string (CDATA) | No | Updated owner name |
+| `telephone` | string (CDATA) | No | Updated phone number |
+
+#### Response (Success)
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10" status="success" errorCode="0" errorDesc="No Error"/>
+```
+
+#### Notes
+
+- Fields being modified must include the `type="string"` attribute or the camera returns a Range Error.
+- The plate is identified by `licensePlateNumber` + `groupId` — both are required.
+
+---
+
+### DeleteLicensePlate
+
+Delete a plate from the database.
+
+| Field | Value |
+|-------|-------|
+| **Endpoint** | `/DeleteLicensePlate` |
+| **Method** | `POST` |
+| **Auth** | Basic |
+| **Products** | IPC |
+
+#### Request
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <deleteAction>
+        <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
+        <groupId><![CDATA[1]]></groupId>
+    </deleteAction>
+</config>
+```
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `licensePlateNumber` | string (CDATA) | Plate number to delete |
+| `groupId` | string (CDATA) | Group the plate belongs to |
+
+#### Response (Success)
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10" status="success" errorCode="0" errorDesc="No Error"/>
+```
+
+---
 
 ## Related Endpoints
 
