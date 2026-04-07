@@ -313,10 +313,12 @@ Face recognition (VFD_MATCH) requires an 8-channel NVR or direct IPC connection.
 
 ## Related Applications
 
+- [Home Assistant Integration](/docs/integrations/home-assistant) — face detection events as native HA sensors for access control automations
 - [Human Detection & Intrusion Detection](/docs/applications/human-detection-intrusion-api) — detect people entering zones (body detection, not face)
 - [People Counting & Traffic Analytics](/docs/applications/people-counting-traffic-analytics-api) — count people crossing lines or entering areas
 - [Webhook Event Notification](/docs/applications/webhook-event-notification-api) — complete webhook setup and format reference
 - [Real-Time Object Tracking](/docs/applications/real-time-object-tracking-api) — continuous target position data via traject
+- [Viewtron Python SDK](/docs/getting-started/python-sdk) — parse face detection events with typed accessors for attributes
 
 ## Related Products
 

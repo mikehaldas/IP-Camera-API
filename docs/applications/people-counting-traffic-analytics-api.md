@@ -358,10 +358,12 @@ Then configure your camera or NVR to send HTTP POST events to `http://<your-serv
 
 ## Related Applications
 
+- [Home Assistant Integration](/docs/integrations/home-assistant) — people/vehicle counting as native HA sensors for occupancy tracking
 - [Human Detection & Intrusion Detection](/docs/applications/human-detection-intrusion-api) — detect people entering defined zones with images
 - [Perimeter Security & Line Crossing](/docs/applications/perimeter-security-line-crossing-api) — tripwire detection and region entry/exit
 - [Real-Time Object Tracking](/docs/applications/real-time-object-tracking-api) — continuous target position data via traject
 - [Webhook Event Notification](/docs/applications/webhook-event-notification-api) — complete webhook setup and format reference
+- [Viewtron Python SDK](/docs/getting-started/python-sdk) — parse counting events in Python
 
 ## Related Products
 

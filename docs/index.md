@@ -60,13 +60,17 @@ All [Viewtron IP cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1
 ## Quick Start
 
 1. **Authenticate** — all requests use [Basic Authentication](/docs/getting-started/authentication)
-2. **Test connectivity** — send a `GetDeviceInfo` request to verify access
-3. **Explore Applications** — browse [solution guides](/docs/category/applications) to see what you can build
-4. **Reference endpoints** — find detailed request/response docs in the [API Reference](/docs/category/api-reference)
+2. **Install the SDK** — `pip install viewtron` ([Python SDK guide](/docs/getting-started/python-sdk))
+3. **Test connectivity** — send a `GetDeviceInfo` request to verify access
+4. **Explore Applications** — browse [solution guides](/docs/category/applications) to see what you can build
+5. **Connect to Home Assistant** — set up the [Home Assistant integration](/docs/integrations/home-assistant) for smart home automations
+6. **Reference endpoints** — find detailed request/response docs in the [API Reference](/docs/category/api-reference)
 
 ## Resources
 
-- **Python API Server & Library** — [github.com/mikehaldas/IP-Camera-API](https://github.com/mikehaldas/IP-Camera-API) — working webhook receiver with the `viewtron.py` abstraction library that handles all API version differences
+- **Python SDK** — [`pip install viewtron`](/docs/getting-started/python-sdk) — parse inbound AI events and control cameras programmatically. Handles all XML formatting and API version differences.
+- **Home Assistant Integration** — [connect Viewtron cameras to Home Assistant](/docs/integrations/home-assistant) via MQTT auto-discovery. LPR, human detection, face detection as native HA sensors.
+- **API Server & Examples** — [github.com/mikehaldas/IP-Camera-API](https://github.com/mikehaldas/IP-Camera-API) — working webhook receiver with the `viewtron.py` abstraction library
 - **Markdown Documentation** — all documentation pages are available as Markdown files in the [GitHub docs directory](https://github.com/mikehaldas/IP-Camera-API/tree/main/docs) for easy integration with AI coding assistants and automated tools
 - **Single-File Reference** — the complete API documentation in [one searchable file](https://github.com/mikehaldas/IP-Camera-API/blob/main/docs/viewtron-api-guide.md) for quick reference and AI assistant ingestion
 - **Support Forum** — [NVR Webhook Setup Guide](https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks)

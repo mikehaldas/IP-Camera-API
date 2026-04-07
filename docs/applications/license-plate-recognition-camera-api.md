@@ -315,10 +315,12 @@ Viewtron LPR cameras include a Wiegand output that sends the plate number direct
 
 ## Related Applications
 
+- [Home Assistant Integration](/docs/integrations/home-assistant) — automate gates, lights, and alerts based on plate reads using native HA sensors
 - [Vehicle Detection & Parking Management](/docs/applications/vehicle-detection-parking-management-api) — detect vehicles without reading plates
 - [Relay Control & IoT Automation](/docs/applications/relay-control-iot-automation-api) — trigger gate relays based on plate authorization
 - [Webhook Event Notification](/docs/applications/webhook-event-notification-api) — complete webhook setup and format reference
 - [Human Detection & Intrusion Detection](/docs/applications/human-detection-intrusion-api) — detect people in the same zones
+- [Viewtron Python SDK](/docs/getting-started/python-sdk) — parse LPR events and manage the plate database programmatically
 
 ## Related Products
 

@@ -353,10 +353,12 @@ Viewtron PTZ cameras include AI auto-tracking that automatically follows detecte
 
 ## Related Applications
 
+- [Home Assistant Integration](/docs/integrations/home-assistant) — trigger PTZ presets from HA automations based on detection events
 - [Real-Time Object Tracking](/docs/applications/real-time-object-tracking-api) — continuous target position data for auto-tracking coordination
 - [Human Detection & Intrusion Detection](/docs/applications/human-detection-intrusion-api) — trigger PTZ presets when intrusion is detected
 - [License Plate Recognition](/docs/applications/license-plate-recognition-camera-api) — combine PTZ positioning with LPR for gate monitoring
 - [Video Snapshots & Recording](/docs/applications/video-snapshots-recording-search-api) — capture snapshots at preset positions
+- [Viewtron Python SDK](/docs/getting-started/python-sdk) — control PTZ cameras programmatically
 
 ## Related Products
 

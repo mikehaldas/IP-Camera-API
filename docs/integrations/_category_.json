@@ -1,0 +1,11 @@
+{
+  "label": "Integrations",
+  "position": 5,
+  "collapsed": false,
+  "link": {
+    "type": "generated-index",
+    "title": "Integrations",
+    "description": "Connect Viewtron AI security cameras to smart home platforms and automation systems. Each integration uses the Viewtron Python SDK to translate camera AI events into platform-native sensors and automations.",
+    "slug": "/category/integrations"
+  }
+}
