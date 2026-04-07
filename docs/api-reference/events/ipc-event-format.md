@@ -226,12 +226,12 @@ License plate events include plate data in the second `<item>` of `<listInfo>`. 
 
 | Value | Meaning |
 |-------|---------|
-| `whiteList` | Plate is on the allow list |
-| `blackList` | Plate is on the block list |
-| `temporaryList` | Plate is on the temporary list and within its valid date range |
-| *(field absent)* | Plate is not in the database, or a temporary plate outside its valid date range |
+| `whiteList` | Plate is on the allow list (within valid date range) |
+| `blackList` | Plate is on the block list (within valid date range) |
+| `temporaryList` | Plate is on the temporary list (within valid date range) |
+| *(field absent)* | Plate is not in the database, or any plate with an expired date range |
 
-The camera validates temporary plate date ranges internally. Expired temporary plates have `vehicleListType` omitted entirely — they are indistinguishable from unknown plates in the HTTP POST event.
+The camera validates date ranges internally for **all** list types — not just temporary plates. Any plate with an expired end date (allow, block, or temporary) will have `vehicleListType` omitted entirely.
 
 :::tip Application Guides
 For step-by-step setup of IPC webhook events, see [Webhook Event Notification API](/docs/applications/webhook-event-notification-api). For traject-based real-time tracking from IPC, see [Real-Time Object Tracking](/docs/applications/real-time-object-tracking-api). For LPR plate database management, see [LPR Configuration](/docs/api-reference/smart-detection/license-plate-recognition-config).

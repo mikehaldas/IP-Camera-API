@@ -124,18 +124,22 @@ Manage the on-camera license plate database — add, query, update, and delete p
 
 ### Plate Status in HTTP POST Events
 
-When a plate is detected, the camera includes a `vehicleListType` field in the HTTP POST event indicating the plate's database status. The camera validates temporary plate date ranges internally.
+When a plate is detected, the camera includes a `vehicleListType` field in the HTTP POST event indicating the plate's current database status. The camera validates date ranges internally for **all** list types.
 
 | Camera Setting | `vehicleListType` Value | Description |
 |---|---|---|
-| Allow list | `whiteList` | Plate is authorized |
-| Block list | `blackList` | Plate is blocked |
-| Temporary vehicle (within date range) | `temporaryList` | Plate is temporarily authorized |
-| Temporary vehicle (expired) | *(field absent)* | Treated the same as unknown |
+| Allow list (valid dates) | `whiteList` | Plate is authorized |
+| Block list (valid dates) | `blackList` | Plate is blocked |
+| Temporary vehicle (valid dates) | `temporaryList` | Plate is temporarily authorized |
+| Any list type (expired dates) | *(field absent)* | Treated the same as unknown |
 | Not in database | *(field absent)* | Plate not recognized |
 
+:::caution Date Ranges Apply to All List Types
+Date range validation is not limited to temporary plates — it applies to **all** list types including allow list and block list. Any plate with an expired end date will have `vehicleListType` omitted from the HTTP POST event, making it indistinguishable from an unknown plate. Use "Valid Forever" in the camera firmware or set a far-future end date to prevent plates from silently expiring.
+:::
+
 :::note
-The camera does not include start/end dates in the HTTP POST event. Date range validation happens on-camera — if a temporary plate is scanned outside its valid range, the `vehicleListType` field is omitted entirely, same as an unknown plate.
+The camera does not include start/end dates in the HTTP POST event. Date range validation happens entirely on-camera.
 :::
 
 :::tip Python SDK
