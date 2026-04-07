@@ -120,7 +120,23 @@ API v2.0 adds `dedupMode` (deduplication with configurable interval) and `plateM
 
 ## Plate Database Management
 
-Manage the on-camera license plate database — add, query, update, and delete plates on the whitelist or blacklist. All endpoints use Basic Authentication.
+Manage the on-camera license plate database — add, query, update, and delete plates. All endpoints use Basic Authentication.
+
+### Plate Status in HTTP POST Events
+
+When a plate is detected, the camera includes a `vehicleListType` field in the HTTP POST event indicating the plate's database status. The camera validates temporary plate date ranges internally.
+
+| Camera Setting | `vehicleListType` Value | Description |
+|---|---|---|
+| Allow list | `whiteList` | Plate is authorized |
+| Block list | `blackList` | Plate is blocked |
+| Temporary vehicle (within date range) | `temporaryList` | Plate is temporarily authorized |
+| Temporary vehicle (expired) | *(field absent)* | Treated the same as unknown |
+| Not in database | *(field absent)* | Plate not recognized |
+
+:::note
+The camera does not include start/end dates in the HTTP POST event. Date range validation happens on-camera — if a temporary plate is scanned outside its valid range, the `vehicleListType` field is omitted entirely, same as an unknown plate.
+:::
 
 :::tip Python SDK
 The [viewtron Python SDK](https://pypi.org/project/viewtron/) (`pip install viewtron`) handles all XML formatting automatically. See the [License Plate Recognition](/docs/applications/license-plate-recognition-camera-api) application guide for code examples.

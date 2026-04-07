@@ -209,6 +209,30 @@ When both source and target images are subscribed, the post includes a `<listInf
 | `PASSLINECOUNT` | Line counting | `PASSLINECOUNT` | (undocumented) | Yes |
 | `TRAFFIC` | Area counting | `TRAFFIC` | (undocumented) | Yes |
 
+### LPR Event Fields (VEHICE)
+
+License plate events include plate data in the second `<item>` of `<listInfo>`. The first item contains the overview image, the second contains the plate number, authorization status, and plate crop image.
+
+| Field | Description |
+|-------|-------------|
+| `plateNumber` | Detected plate text |
+| `vehicleListType` | Plate database status (see table below) |
+| `PlateConfidence` | Detection confidence score |
+| `plateColor` | Plate color |
+| `vehicleDirect` | Vehicle direction (`approach` or `leave`) |
+| `targetImageData/targetBase64Data` | Base64 JPEG plate crop image |
+
+**Plate database status (`vehicleListType`):**
+
+| Value | Meaning |
+|-------|---------|
+| `whiteList` | Plate is on the allow list |
+| `blackList` | Plate is on the block list |
+| `temporaryList` | Plate is on the temporary list and within its valid date range |
+| *(field absent)* | Plate is not in the database, or a temporary plate outside its valid date range |
+
+The camera validates temporary plate date ranges internally. Expired temporary plates have `vehicleListType` omitted entirely — they are indistinguishable from unknown plates in the HTTP POST event.
+
 :::tip Application Guides
-For step-by-step setup of IPC webhook events, see [Webhook Event Notification API](/docs/applications/webhook-event-notification-api). For traject-based real-time tracking from IPC, see [Real-Time Object Tracking](/docs/applications/real-time-object-tracking-api).
+For step-by-step setup of IPC webhook events, see [Webhook Event Notification API](/docs/applications/webhook-event-notification-api). For traject-based real-time tracking from IPC, see [Real-Time Object Tracking](/docs/applications/real-time-object-tracking-api). For LPR plate database management, see [LPR Configuration](/docs/api-reference/smart-detection/license-plate-recognition-config).
 :::

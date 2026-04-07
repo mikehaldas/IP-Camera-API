@@ -21,11 +21,12 @@ Webhook mode:
 Both modes can run simultaneously.
 
 Setup:
-    1. Copy ha_bridge.yaml.example to ha_bridge.yaml and configure
-    2. Point your camera/NVR HTTP Post at this bridge's IP and port
-    3. Run: python3 ha_bridge.py
+    1. pip install viewtron paho-mqtt pyyaml requests
+    2. Copy config.yaml.example to config.yaml and configure
+    3. Point your camera/NVR HTTP Post at this bridge's IP and port
+    4. Run: python3 viewtron_bridge.py
 
-Requires: viewtron.py (in the same directory), paho-mqtt (for MQTT mode)
+Requires: pip install viewtron paho-mqtt pyyaml requests
 
 Written by Mike Haldas
 mike@cctvcamerapros.net
@@ -35,7 +36,6 @@ from socketserver import ThreadingMixIn
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from datetime import datetime as dt
 try:
-    # Use viewtron pip package if installed
     from viewtron.events import (
         LPR, FaceDetection, IntrusionDetection, IntrusionEntry, IntrusionExit,
         LoiteringDetection, VideoMetadata,
@@ -43,7 +43,6 @@ try:
         TargetCountingByLine, TargetCountingByArea, VideoMetadataV2,
     )
 except (ImportError, ModuleNotFoundError):
-    # Fall back to local viewtron.py (for development or standalone use)
     from viewtron import (
         LPR, FaceDetection, IntrusionDetection, IntrusionEntry, IntrusionExit,
         LoiteringDetection, VideoMetadata,
@@ -414,6 +413,8 @@ def forward_to_webhook(ha_url, webhook_id, payload, timeout=5):
 class HABridgeHandler(BaseHTTPRequestHandler):
     """HTTP handler that receives Viewtron events and forwards to HA."""
 
+    connected_cameras = {}  # ip → True (tracks which cameras we've seen)
+
     def log_message(self, format, *args):
         pass
 
@@ -449,6 +450,11 @@ class HABridgeHandler(BaseHTTPRequestHandler):
         client_ip = self.client_address[0]
 
         if length == 0:
+            # Keepalive — log first time we see each camera
+            if client_ip not in HABridgeHandler.connected_cameras:
+                HABridgeHandler.connected_cameras[client_ip] = True
+                ts = dt.now().strftime("%H:%M:%S")
+                print(f"[{ts}] Camera connected: {client_ip}")
             return
 
         body = self.rfile.read(length)

@@ -45,7 +45,7 @@ Each LPR webhook POST contains:
 |-------|-------------|
 | `smartType` | `VEHICE` (IPC) or `vehicle` (NVR) |
 | `plateNumber` / `licensePlateNumber` | Detected plate text (e.g., `JP116D`) |
-| `vehicleListType` | `whiteList`, `blackList`, or `strangerList` (IPC v1.x) |
+| `vehicleListType` | `whiteList`, `blackList`, `temporaryList`, or absent if not in database (IPC v1.x). Temporary plates outside their valid date range also have this field absent. |
 | `licensePlateAttribute/color` | Plate color (NVR v2.0) |
 | `carAttribute/carType` | Vehicle type: `sedan`, `suv`, `mpv`, `truck`, etc. (NVR v2.0) |
 | `carAttribute/color` | Vehicle color (NVR v2.0) |

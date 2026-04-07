@@ -1,0 +1,667 @@
+"""
+Abstration layer for Viewtron IP camera API. Transforms XML from
+the HTTP Post from IP cameras to usable objects to build a Python server.
+Viewtron IP cameras have the ability to send an HTTP Post to an external server
+when an alarm event occurs. Alarm events include human detection, car detection,
+face detection / facial recognition, license plate detection / automatic license plate recogition.
+All of the server connection information is configured on the Viewtron IP camera.
+You can find Viewtron IP cameras at https://www.Viewtron.com
+"""
+import xmltodict
+from datetime import datetime as dt
+import base64
+
+VT_alarm_types = {
+    'MOTION': 'Motion Detection',
+    'SENSOR': 'External Sensor',
+    'PEA': 'Line Crossing / Intrusion',
+    'AVD': 'Exception Detection',
+    'OSC': 'Missing Object or Abandoned Object',
+    'CDD': 'Crowd Density Detection',
+    'VFD': 'Face Detection',
+    'VFD_MATCH': 'Face Match',
+    'VEHICE': 'License Plate Detection',
+    'VEHICLE': 'License Plate Detection',
+    'AOIENTRY': 'Intrusion Zone Entry',
+    'AOILEAVE': 'Intrusion Zone Exit',
+    'LOITER': 'Loitering Detection',
+    'PASSLINECOUNT': 'Line Crossing Target Count',
+    'TRAFFIC': 'Intrusion Target Count',
+    'FALLING': 'Falling Object Detection',
+    'EA': 'Motorcycle / Bicycle Detection',
+    'VSD': 'Video Metadata',
+    'PVD': 'Illegal Parking'
+}
+
+class APIpost:
+    def __init__(self, post_body, json):
+        self.xml = str(post_body)
+        self.json = json
+        config = json.get('config', {})
+        # === SAFE PARSING ===
+        types = config.get('types', {})
+        self.alarm_types = types.get('openAlramObj', {})
+        self.target_types = types.get('targetType', {})
+        device_name = config.get('deviceName', {})
+        self.ip_cam = (
+            device_name.get('#text') if isinstance(device_name, dict) else
+            device_name.get('value') if isinstance(device_name, dict) else
+            str(device_name or 'Unknown Camera')
+        )
+        smart_type = config.get('smartType', {})
+        self.alarm_type = (
+            smart_type.get('#text') if isinstance(smart_type, dict) else
+            smart_type.get('value') if isinstance(smart_type, dict) else
+            smart_type.get('@type') if isinstance(smart_type, dict) else
+            str(smart_type)
+        ).strip()
+        self.alarm_description = VT_alarm_types.get(self.alarm_type, 'Unknown Alarm')
+        current_time = config.get('currentTime', {})
+        time_text = (
+            current_time.get('#text') if isinstance(current_time, dict) else
+            current_time.get('value') if isinstance(current_time, dict) else
+            str(current_time or '')
+        )
+        try:
+            time_val = int(time_text)
+            if time_val > 1_000_000_000_000: # milliseconds
+                time_val = time_val // 1000
+            self.time_stamp_formatted = dt.fromtimestamp(time_val)
+        except:
+            self.time_stamp_formatted = dt.now()
+
+    def set_ip_address(self, ip_address):
+        self.ip_address = ip_address
+        return 1
+
+    def get_ip_address(self):
+        return getattr(self, 'ip_address', 'Unknown')
+
+    def get_alarm_types(self):
+        return self.alarm_types
+
+    def get_alarm_description(self):
+        return self.alarm_description
+
+    def get_target_types(self):
+        return self.target_types
+
+    def get_time_stamp_formatted(self):
+        return str(self.time_stamp_formatted)
+
+    def get_time_stamp(self):
+        return str(int(dt.now().timestamp()))
+
+    def get_ip_cam(self):
+        return self.ip_cam
+
+    def get_alarm_type(self):
+        return self.alarm_type
+
+    def get_plate_number(self):
+        return getattr(self, 'plate_number', '<NO PLATE EXISTS>')
+
+    def source_image_exists(self):
+        return getattr(self, 'has_source_image', False) and bool(getattr(self, 'source_image', ''))
+
+    def target_image_exists(self):
+        return getattr(self, 'has_target_image', False) and bool(getattr(self, 'target_image', ''))
+
+    def images_exist(self):
+        return self.source_image_exists() or self.target_image_exists()
+
+    def get_source_image(self):
+        return getattr(self, 'source_image', '') if self.source_image_exists() else None
+
+    def get_target_image(self):
+        return getattr(self, 'target_image', '') if self.target_image_exists() else None
+
+    def dump_xml(self):
+        print(self.xml)
+
+    def dump_json(self):
+        print(self.json)
+
+
+class CommonImagesLocation(APIpost):
+    def __init__(self, post_body):
+        self.json = xmltodict.parse(post_body)
+        config = self.json.get('config', {})
+        list_info = config.get('listInfo', {})
+        self.has_source_image = self.has_target_image = False
+        self.source_image = self.target_image = ''
+        if isinstance(list_info, dict) and list_info.get('@count', '0') != '0':
+            item = list_info.get('item', {})
+            if isinstance(item, list):
+                item = item[0] if item else {}
+            target_data = item.get('targetImageData', {})
+            length = target_data.get('targetBase64Length', {})
+            length = length.get('#text', '0') if isinstance(length, dict) else str(length)
+            if length and int(length) > 0:
+                base64_data = target_data.get('targetBase64Data', {}) or target_data.get('sourceBase64Data', {})
+                self.target_image = (
+                    base64_data.get('#text') if isinstance(base64_data, dict) else
+                    base64_data.get('value') if isinstance(base64_data, dict) else
+                    str(base64_data)
+                ).strip()
+                self.has_target_image = bool(self.target_image)
+        source_info = config.get('sourceDataInfo', {})
+        if source_info:
+            base64_data = source_info.get('sourceBase64Data', {})
+            self.source_image = (
+                base64_data.get('#text') if isinstance(base64_data, dict) else
+                base64_data.get('value') if isinstance(base64_data, dict) else
+                str(base64_data)
+            ).strip()
+            self.has_source_image = bool(self.source_image)
+        super().__init__(post_body, self.json)
+
+class FaceDetectionImages(APIpost):
+    """
+    Dedicated image extractor for Face Detection (VFD + FEATURE_RESULT) events.
+    Replaces CommonImagesLocation for FaceDetection – images are delivered differently:
+      • Full scene image  → in <sourceDataInfo><sourceBase64Data>
+      • Face crop(s)      → in each <item><targetImageData><targetBase64Data>
+    """
+    def __init__(self, post_body):
+        self.json = xmltodict.parse(post_body)
+        config = self.json.get('config', {})
+
+        # Reset flags and images
+        self.has_source_image = False
+        self.has_target_image = False
+        self.source_image = ''
+        self.target_image = ''  # will hold only the FIRST face crop (for backward compatibility)
+
+        # 1. Full-scene image (always in sourceDataInfo for VFD)
+        source_info = config.get('sourceDataInfo', {})
+        if source_info:
+            base64_data = source_info.get('sourceBase64Data', {})
+            self.source_image = (
+                base64_data.get('#text') if isinstance(base64_data, dict) else
+                base64_data.get('value') if isinstance(base64_data, dict) else
+                str(base64_data)
+            ).strip()
+            self.has_source_image = bool(self.source_image)
+
+        # 2. Face crops – one or more in listInfo/item
+        list_info = config.get('listInfo', {})
+        items = list_info.get('item', []) if isinstance(list_info, dict) else []
+        if not isinstance(items, list):
+            items = [items] if items else []
+
+        if items:
+            # Use the first face crop as "target_image" to keep APIpost methods working
+            first_item = items[0]
+            if isinstance(first_item, dict):
+                target_data = first_item.get('targetImageData', {})
+                length_elem = target_data.get('targetBase64Length', {})
+                length = length_elem.get('#text', '0') if isinstance(length_elem, dict) else str(length_elem)
+                if length and int(length) > 0:
+                    base64_elem = target_data.get('targetBase64Data', {})
+                    self.target_image = (
+                        base64_elem.get('#text') if isinstance(base64_elem, dict) else
+                        base64_elem.get('value') if isinstance(base64_elem, dict) else
+                        str(base64_elem)
+                    ).strip()
+                    self.has_target_image = bool(self.target_image)
+
+        super().__init__(post_body, self.json)
+
+class FaceDetection(FaceDetectionImages, APIpost):
+    def __init__(self, post_body):
+        super().__init__(post_body)
+
+class IntrusionDetection(CommonImagesLocation, APIpost):
+    def __init__(self, post_body):
+        super().__init__(post_body)
+
+class IntrusionEntry(CommonImagesLocation, APIpost):
+    def __init__(self, post_body):
+        super().__init__(post_body)
+
+class IntrusionExit(CommonImagesLocation, APIpost):
+    def __init__(self, post_body):
+        super().__init__(post_body)
+
+class LoiteringDetection(CommonImagesLocation, APIpost):
+    def __init__(self, post_body):
+        super().__init__(post_body)
+
+class IllegalParking(CommonImagesLocation, APIpost):
+    def __init__(self, post_body):
+        super().__init__(post_body)
+
+
+class VideoMetadata(APIpost):
+    def __init__(self, post_body):
+        self.json = xmltodict.parse(post_body)
+        config = self.json.get('config', {})
+        vsd = config.get('vsd', {})
+        source_info = vsd.get('sourceDataInfo', {})
+        length = source_info.get('sourceBase64Length', {})
+        Parsed_length = length.get('#text', '0') if isinstance(length, dict) else str(length)
+        if Parsed_length and int(Parsed_length) > 0:
+            base64_data = source_info.get('sourceBase64Data', {})
+            self.source_image = (
+                base64_data.get('#text') if isinstance(base64_data, dict) else
+                base64_data.get('value') if isinstance(base64_data, dict) else
+                str(base64_data)
+            ).strip()
+            self.has_source_image = bool(self.source_image)
+        target_data = vsd.get('targetImageData', {})
+        length = target_data.get('targetBase64Length', {})
+        Parsed_length = length.get('#text', '0') if isinstance(length, dict) else str(length)
+        if Parsed_length and int(Parsed_length) > 0:
+            base64_data = target_data.get('targetBase64Data', {})
+            self.target_image = (
+                base64_data.get('#text') if isinstance(base64_data, dict) else
+                base64_data.get('value') if isinstance(base64_data, dict) else
+                str(base64_data)
+            ).strip()
+            self.has_target_image = bool(self.target_image)
+        super().__init__(post_body, self.json)
+
+
+class LPR(APIpost):
+    def __init__(self, post_body):
+        self.json = xmltodict.parse(post_body)
+        config = self.json.get('config', {})
+
+        self.vehicleListType = None
+        list_info = config.get('listInfo', {})
+        items = list_info.get('item', [])
+        if not isinstance(items, list):
+            items = [items] if items else []
+        if len(items) >= 2:
+            plate_item = items[1]
+        elif len(items) == 1:
+            plate_item = items[0]
+        else:
+            plate_item = None
+
+        # vehicleListType is where whiteList or blackList is specified for authorized license plates
+        if plate_item and isinstance(plate_item, dict):
+            vlt = plate_item.get('vehicleListType')
+            if isinstance(vlt, dict):
+                self.vehicleListType = vlt.get('#text') or vlt.get('value')
+            elif vlt:
+                self.vehicleListType = str(vlt)
+        # ===============================================================================
+
+        self.has_source_image = self.has_target_image = False
+        self.source_image = self.target_image = ''
+        self.plate_number = '<NO PLATE>'
+
+        for idx, item in enumerate(items):
+            if not isinstance(item, dict):
+                continue
+            # Overview image (item 0)
+            if idx == 0:
+                img_data = item.get('targetImageData', {})
+                length_elem = img_data.get('targetBase64Length', {})
+                length = length_elem.get('#text') if isinstance(length_elem, dict) else str(length_elem)
+                if length and int(length) > 0:
+                    base64_elem = img_data.get('targetBase64Data', {})
+                    self.source_image = (
+                        base64_elem.get('#text') if isinstance(base64_elem, dict) else
+                        base64_elem.get('value') if isinstance(base64_elem, dict) else
+                        str(base64_elem)
+                    ).strip()
+                    self.has_source_image = bool(self.source_image)
+            # Plate info and image (item 1 or only item)
+            if idx == 1 or (idx == 0 and len(items) == 1):
+                plate_num = item.get('plateNumber', {})
+                self.plate_number = (
+                    plate_num.get('#text') if isinstance(plate_num, dict) else
+                    plate_num.get('value') if isinstance(plate_num, dict) else
+                    str(plate_num)
+                ).strip()
+
+                img_data = item.get('targetImageData', {})
+                length_elem = img_data.get('targetBase64Length', {})
+                length = length_elem.get('#text') if isinstance(length_elem, dict) else str(length_elem)
+                if length and int(length) > 0:
+                    base64_elem = img_data.get('targetBase64Data', {})
+                    self.target_image = (
+                        base64_elem.get('#text') if isinstance(base64_elem, dict) else
+                        base64_elem.get('value') if isinstance(base64_elem, dict) else
+                        str(base64_elem)
+                    ).strip()
+                    self.has_target_image = bool(self.target_image)
+
+        # === FALLBACK: some firmware puts overview in sourceDataInfo ===
+        if not self.has_source_image:
+            source_info = config.get('sourceDataInfo', {})
+            if source_info:
+                base64_data = source_info.get('sourceBase64Data', {})
+                src = (
+                    base64_data.get('#text') if isinstance(base64_data, dict) else
+                    base64_data.get('value') if isinstance(base64_data, dict) else
+                    str(base64_data)
+                ).strip()
+                if src:
+                    self.source_image = src
+                    self.has_source_image = True
+
+        super().__init__(post_body, self.json)
+
+    def get_vehicle_list_type(self):
+        return self.vehicleListType
+
+    def is_plate_authorized(self):
+        list_type = self.get_vehicle_list_type()
+        if self.get_vehicle_list_type() == 'whiteList':
+            return True
+        if self.get_vehicle_list_type() == 'blackList':
+            return False
+        return False
+
+
+# ====================== NVR v2.0 FORMAT ======================
+# NVRs send a completely different XML structure than IPC v1.x cameras.
+# v2.0 uses: messageType, deviceInfo (ip/mac/channelId), microsecond timestamps,
+# sourceDataInfo for overview images, and targetListInfo for target crops.
+# These classes expose the SAME method interface as APIpost so server.py
+# can process both versions with the same image saving / CSV logging code.
+
+VT_alarm_types_v2 = {
+    'regionIntrusion': 'Perimeter Intrusion',
+    'lineCrossing': 'Line Crossing',
+    'targetCountingByLine': 'Target Counting by Line',
+    'targetCountingByArea': 'Target Counting by Area',
+    'videoMetadata': 'Video Metadata',
+    'vehicle': 'License Plate Detection',
+    'videoFaceDetect': 'Face Detection',
+}
+
+class APIpostV2:
+    """Base class for NVR v2.0 HTTP Posts."""
+    def __init__(self, post_body, json):
+        self.xml = str(post_body)
+        self.json = json
+        config = json.get('config', {})
+
+        # === DEVICE INFO ===
+        device_info = config.get('deviceInfo', {})
+        device_name = device_info.get('deviceName', 'Unknown Camera')
+        # CDATA values come through as plain strings in xmltodict
+        self.ip_cam = str(device_name) if device_name else 'Unknown Camera'
+        self.device_ip = str(device_info.get('ip', ''))
+        self.device_mac = str(device_info.get('mac', ''))
+        self.channel_id = str(device_info.get('channelId', ''))
+
+        # === ALARM TYPE ===
+        self.alarm_type = str(config.get('smartType', '')).strip()
+        self.alarm_description = VT_alarm_types_v2.get(self.alarm_type, 'Unknown Alarm')
+
+        # === TIMESTAMP (microseconds) ===
+        current_time = config.get('currentTime', '')
+        try:
+            time_val = int(current_time)
+            if time_val > 1_000_000_000_000_000:  # microseconds
+                time_val = time_val // 1_000_000
+            elif time_val > 1_000_000_000_000:  # milliseconds
+                time_val = time_val // 1000
+            self.time_stamp_formatted = dt.fromtimestamp(time_val)
+        except:
+            self.time_stamp_formatted = dt.now()
+
+        # === IMAGES ===
+        self.has_source_image = False
+        self.has_target_image = False
+        self.source_image = ''
+        self.target_image = ''
+
+        # Overview / scene image in sourceDataInfo
+        source_info = config.get('sourceDataInfo', {})
+        if source_info:
+            length = source_info.get('sourceBase64Length', '0')
+            if isinstance(length, dict):
+                length = length.get('#text', '0')
+            if length and int(length) > 0:
+                base64_data = source_info.get('sourceBase64Data', '')
+                if isinstance(base64_data, dict):
+                    base64_data = base64_data.get('#text', '') or base64_data.get('value', '')
+                self.source_image = str(base64_data).strip()
+                self.has_source_image = bool(self.source_image)
+
+        # Target crop in targetListInfo (first item only, like v1.x)
+        target_list = config.get('targetListInfo', {})
+        items = target_list.get('item', []) if isinstance(target_list, dict) else []
+        if not isinstance(items, list):
+            items = [items] if items else []
+        if items:
+            first_item = items[0]
+            if isinstance(first_item, dict):
+                target_data = first_item.get('targetImageData', {})
+                length = target_data.get('targetBase64Length', '0')
+                if isinstance(length, dict):
+                    length = length.get('#text', '0')
+                if length and int(length) > 0:
+                    base64_data = target_data.get('targetBase64Data', '')
+                    if isinstance(base64_data, dict):
+                        base64_data = base64_data.get('#text', '') or base64_data.get('value', '')
+                    self.target_image = str(base64_data).strip()
+                    self.has_target_image = bool(self.target_image)
+
+    # === SAME INTERFACE AS APIpost ===
+    def set_ip_address(self, ip_address):
+        self.ip_address = ip_address
+        return 1
+
+    def get_ip_address(self):
+        return getattr(self, 'ip_address', 'Unknown')
+
+    def get_alarm_type(self):
+        return self.alarm_type
+
+    def get_alarm_description(self):
+        return self.alarm_description
+
+    def get_ip_cam(self):
+        return self.ip_cam
+
+    def get_time_stamp(self):
+        return str(int(dt.now().timestamp()))
+
+    def get_time_stamp_formatted(self):
+        return str(self.time_stamp_formatted)
+
+    def get_plate_number(self):
+        return '<NO PLATE EXISTS>'
+
+    def is_plate_authorized(self):
+        return False
+
+    def source_image_exists(self):
+        return self.has_source_image and bool(self.source_image)
+
+    def target_image_exists(self):
+        return self.has_target_image and bool(self.target_image)
+
+    def images_exist(self):
+        return self.source_image_exists() or self.target_image_exists()
+
+    def get_source_image(self):
+        return self.source_image if self.source_image_exists() else None
+
+    def get_target_image(self):
+        return self.target_image if self.target_image_exists() else None
+
+    def get_channel_id(self):
+        return self.channel_id
+
+    def dump_xml(self):
+        print(self.xml)
+
+    def dump_json(self):
+        print(self.json)
+
+
+class RegionIntrusion(APIpostV2):
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+
+
+class LineCrossing(APIpostV2):
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+
+
+class TargetCountingByLine(APIpostV2):
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+
+
+class TargetCountingByArea(APIpostV2):
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+
+
+class VideoMetadataV2(APIpostV2):
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+
+
+class VehicleLPR(APIpostV2):
+    """NVR v2.0 License Plate Recognition (smartType: vehicle).
+
+    Uses a completely different XML structure from other v2.0 alarm types:
+    - licensePlateListInfo instead of eventInfo + targetListInfo
+    - Plate number in licensePlateAttribute/licensePlateNumber
+    - Vehicle attributes: carType, color, brand, model
+    - Target image is a plate crop inside licensePlateListInfo/item/targetImageData
+    """
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+        config = json.get('config', {})
+
+        self.plate_number = '<NO PLATE>'
+        self.plate_color = ''
+        self.car_type = ''
+        self.car_color = ''
+        self.car_brand = ''
+        self.car_model = ''
+
+        # Parse licensePlateListInfo
+        plate_list = config.get('licensePlateListInfo', {})
+        items = plate_list.get('item', []) if isinstance(plate_list, dict) else []
+        if not isinstance(items, list):
+            items = [items] if items else []
+
+        if items:
+            first_item = items[0]
+            if isinstance(first_item, dict):
+                # Plate number and color
+                plate_attr = first_item.get('licensePlateAttribute', {})
+                if plate_attr:
+                    plate_num = plate_attr.get('licensePlateNumber', '')
+                    self.plate_number = str(plate_num).strip() if plate_num else '<NO PLATE>'
+                    self.plate_color = str(plate_attr.get('color', '')).strip()
+
+                # Vehicle attributes
+                car_attr = first_item.get('carAttribute', {})
+                if car_attr:
+                    self.car_type = str(car_attr.get('carType', '')).strip()
+                    self.car_color = str(car_attr.get('color', '')).strip()
+                    self.car_brand = str(car_attr.get('brand', '')).strip()
+                    self.car_model = str(car_attr.get('model', '')).strip()
+
+                # Plate crop image (inside licensePlateListInfo, not targetListInfo)
+                target_data = first_item.get('targetImageData', {})
+                if target_data:
+                    length = target_data.get('targetBase64Length', '0')
+                    if isinstance(length, dict):
+                        length = length.get('#text', '0')
+                    if length and int(length) > 0:
+                        base64_data = target_data.get('targetBase64Data', '')
+                        if isinstance(base64_data, dict):
+                            base64_data = base64_data.get('#text', '') or base64_data.get('value', '')
+                        self.target_image = str(base64_data).strip()
+                        self.has_target_image = bool(self.target_image)
+
+    def get_plate_number(self):
+        return self.plate_number
+
+    def get_plate_color(self):
+        return self.plate_color
+
+    def get_car_type(self):
+        return self.car_type
+
+    def get_car_color(self):
+        return self.car_color
+
+    def get_car_brand(self):
+        return self.car_brand
+
+    def get_car_model(self):
+        return self.car_model
+
+    def is_plate_authorized(self):
+        return False  # NVR v2.0 does not include whiteList/blackList
+
+
+class FaceDetectionV2(APIpostV2):
+    """NVR v2.0 Face Detection (smartType: videoFaceDetect).
+
+    Uses faceListInfo instead of eventInfo + targetListInfo.
+    Each face item includes attributes: age, sex, glasses, mask.
+    Target image is a square face crop inside faceListInfo/item/targetImageData.
+    """
+    def __init__(self, post_body):
+        json = xmltodict.parse(post_body)
+        super().__init__(post_body, json)
+        config = json.get('config', {})
+
+        self.face_age = ''
+        self.face_sex = ''
+        self.face_glasses = ''
+        self.face_mask = ''
+
+        # Parse faceListInfo
+        face_list = config.get('faceListInfo', {})
+        items = face_list.get('item', []) if isinstance(face_list, dict) else []
+        if not isinstance(items, list):
+            items = [items] if items else []
+
+        if items:
+            first_item = items[0]
+            if isinstance(first_item, dict):
+                # Face attributes
+                self.face_age = str(first_item.get('age', '')).strip()
+                self.face_sex = str(first_item.get('sex', '')).strip()
+                self.face_glasses = str(first_item.get('glasses', '')).strip()
+                self.face_mask = str(first_item.get('mask', '')).strip()
+
+                # Face crop image (inside faceListInfo, not targetListInfo)
+                target_data = first_item.get('targetImageData', {})
+                if target_data:
+                    length = target_data.get('targetBase64Length', '0')
+                    if isinstance(length, dict):
+                        length = length.get('#text', '0')
+                    if length and int(length) > 0:
+                        base64_data = target_data.get('targetBase64Data', '')
+                        if isinstance(base64_data, dict):
+                            base64_data = base64_data.get('#text', '') or base64_data.get('value', '')
+                        self.target_image = str(base64_data).strip()
+                        self.has_target_image = bool(self.target_image)
+
+    def get_face_age(self):
+        return self.face_age
+
+    def get_face_sex(self):
+        return self.face_sex
+
+    def get_face_glasses(self):
+        return self.face_glasses
+
+    def get_face_mask(self):
+        return self.face_mask
