@@ -75,6 +75,16 @@ All [Viewtron IP cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1
 - **Single-File Reference** — the complete API documentation in [one searchable file](https://github.com/mikehaldas/IP-Camera-API/blob/main/docs/viewtron-api-guide.md) for quick reference and AI assistant ingestion
 - **Support Forum** — [NVR Webhook Setup Guide](https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks)
 
+## Video Guides & Tutorials
+
+These blog posts and video walkthroughs cover camera setup, installation best practices, and live demos of the API in action.
+
+- [LPR Camera API Setup and Live Demo](https://videos.cctvcamerapros.com/v/lpr-camera-api.html) — configuring webhooks, receiving plate reads, and viewing event data in real time
+- [AI Security Camera System Overview](https://videos.cctvcamerapros.com/v/ai-security-camera-system.html) — human detection, vehicle detection, and the different AI event types
+- [ANPR / LPR Camera System](https://videos.cctvcamerapros.com/v/lpr-camera-system-anpr.html) — installation, plate capture zones, and system design for license plate recognition
+- [Best License Plate Recognition Cameras](https://videos.cctvcamerapros.com/surveillance-systems/best-license-plate-recognition-cameras.html) — buyer's guide comparing Viewtron LPR cameras
+- [IP Camera Alarm Relay Control](https://videos.cctvcamerapros.com/v/ip-camera-alarm-relay.html) — triggering relays and alarm outputs via the API
+
 ## Questions & Development Inquiries
 
 - **Email:** mike@viewtron.com

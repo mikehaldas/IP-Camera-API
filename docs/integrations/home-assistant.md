@@ -291,6 +291,13 @@ All Viewtron products are NDAA compliant.
 - [Webhook Event Notification](/docs/applications/webhook-event-notification-api) — complete webhook setup reference
 - [HTTP POST Setup](/docs/getting-started/http-post-setup) — camera webhook configuration
 
+## Video Guides & Blog Posts
+
+- [LPR Camera API Setup and Demo](https://videos.cctvcamerapros.com/v/lpr-camera-api.html) — video walkthrough of configuring LPR webhooks and viewing live plate reads
+- [ANPR / LPR Camera System Overview](https://videos.cctvcamerapros.com/v/lpr-camera-system-anpr.html) — camera installation, plate capture zones, and system design
+- [LPR Camera for Home Use](https://videos.cctvcamerapros.com/v/lpr-camera-for-home.html) — residential driveway and garage setup with the LPR-IP4
+- [LPR Camera Installation Best Practices](https://videos.cctvcamerapros.com/v/anpr-lpr-camera-installation.html) — mounting angles, distances, and IR illumination for reliable plate capture
+
 ## Questions & Development Inquiries
 
 - **Email:** mike@viewtron.com

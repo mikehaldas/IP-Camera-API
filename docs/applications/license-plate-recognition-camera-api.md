@@ -325,7 +325,15 @@ Viewtron LPR cameras include a Wiegand output that sends the plate number direct
 ## Related Products
 
 - [Viewtron LPR Cameras](https://www.cctvcamerapros.com/License-Plate-Capture-Cameras-s/189.htm) — IP cameras with built-in license plate recognition
+- [Viewtron LPR Gate Access Camera Systems](https://www.cctvcamerapros.com/LPR-Camera-Systems-Gate-Security-s/1405.htm) — complete LPR systems for gated communities and commercial facilities
 - [Viewtron IP Camera NVRs](https://www.cctvcamerapros.com/IP-Camera-NVRs-s/1472.htm) — NVRs with HTTP POST event forwarding
+- [Best License Plate Recognition Cameras](https://videos.cctvcamerapros.com/surveillance-systems/best-license-plate-recognition-cameras.html) — buyer's guide comparing LPR camera options
+
+## Video Guides
+
+- [LPR Camera API Setup and Demo](https://videos.cctvcamerapros.com/v/lpr-camera-api.html) — video walkthrough of configuring LPR webhooks and viewing live plate reads
+- [ANPR / LPR Camera System Overview](https://videos.cctvcamerapros.com/v/lpr-camera-system-anpr.html) — camera installation, plate capture zones, and system design
+- [LPR Camera Installation Best Practices](https://videos.cctvcamerapros.com/v/anpr-lpr-camera-installation.html) — mounting angles, distances, and IR illumination
 
 ## Questions & Development Inquiries
 

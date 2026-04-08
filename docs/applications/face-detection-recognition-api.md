@@ -326,6 +326,8 @@ Face recognition (VFD_MATCH) requires an 8-channel NVR or direct IPC connection.
 - [Viewtron AI Security Cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm) — full AI camera lineup
 - [Viewtron IP Camera NVRs](https://www.cctvcamerapros.com/IP-Camera-NVRs-s/1472.htm) — NVRs with HTTP POST event forwarding
 
+All face detection processing runs on the camera hardware. There is no cloud API dependency, which is important for deployments that need to comply with facial recognition regulations. The NVR v2.0 format includes face attributes (age, sex, glasses, mask) that the IPC v1.x format does not — see the [face detection video demo](https://videos.cctvcamerapros.com/v/ai-face-recognition.html) for a walkthrough of both formats.
+
 ## Questions & Development Inquiries
 
 - **Email:** mike@viewtron.com

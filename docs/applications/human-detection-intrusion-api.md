@@ -284,6 +284,8 @@ Then configure your camera or NVR to send HTTP POST events to `http://<your-serv
 - [Viewtron AI Security Cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm) — IP cameras with built-in human detection
 - [Viewtron IP Camera NVRs](https://www.cctvcamerapros.com/IP-Camera-NVRs-s/1472.htm) — NVRs with HTTP POST event forwarding
 
+For a walkthrough of human detection events in action, including zone configuration and live webhook output, see the [AI Security Camera System video guide](https://videos.cctvcamerapros.com/v/ai-security-camera-system.html).
+
 ## Questions & Development Inquiries
 
 - **Email:** mike@viewtron.com

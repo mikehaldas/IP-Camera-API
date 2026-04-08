@@ -8,7 +8,11 @@ The server supports both **IP Camera direct (v1.x)** and **NVR forwarded (v2.0)*
 
 ## Viewtron API Developer Guide
 
-Find the Viewtron API developer guide here: https://github.com/mikehaldas/IP-Camera-API/blob/main/docs/viewtron-api-guide.md
+**Full documentation portal:** https://videos.cctvcamerapros.com/developer/
+
+The Docusaurus-powered documentation site includes application guides, API reference, Python SDK docs, and Home Assistant integration setup. All pages are also available as Markdown in the [`docs/`](docs/) directory.
+
+Single-file reference: https://github.com/mikehaldas/IP-Camera-API/blob/main/docs/viewtron-api-guide.md
 
 ## License Plate Recognition
 
@@ -147,11 +151,13 @@ Setup guide: https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webho
 
 | Resource | Description |
 |----------|-------------|
+| [API Developer Portal](https://videos.cctvcamerapros.com/developer/) | Full documentation with application guides and API reference |
+| [Python SDK](https://videos.cctvcamerapros.com/developer/docs/getting-started/python-sdk/) | `pip install viewtron` — event parsing and camera control |
+| [Home Assistant Integration](https://videos.cctvcamerapros.com/developer/docs/integrations/home-assistant/) | Camera AI events as native HA sensors via MQTT |
+| [LPR Application Guide](https://videos.cctvcamerapros.com/developer/docs/applications/license-plate-recognition-camera-api/) | Plate recognition webhook formats and code examples |
 | [XML Examples](examples/) | Sample XML payloads for all alarm types with format documentation |
 | [IP Camera Setup Guide](https://videos.cctvcamerapros.com/support/topic/ip-camera-api-webbooks) | Configure IP camera HTTP Post webhooks |
-| [IP Camera Detection Events](https://videos.cctvcamerapros.com/support/topic/ai-security-camera-api) | IP camera v1.x detection types reference |
 | [NVR Setup Guide](https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks) | Configure NVR HTTP Post webhooks |
-| [NVR Detection Events](https://videos.cctvcamerapros.com/support/topic/nvr-webhook-api-ai-events) | NVR v2.0 detection types reference |
 
 ## Products
 

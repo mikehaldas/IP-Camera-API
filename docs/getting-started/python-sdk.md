@@ -203,6 +203,15 @@ See the [LPR Config API reference](/docs/api-reference/smart-detection/license-p
 - [Webhook Event Formats](/docs/api-reference/events/ipc-event-format) — raw XML event structure reference
 - [Home Assistant Integration](/docs/integrations/home-assistant) — connect cameras to Home Assistant
 
+## Supported Cameras
+
+The SDK works with any [Viewtron AI security camera](https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm) or [NVR](https://www.cctvcamerapros.com/IP-Camera-NVRs-s/1472.htm) that supports HTTP POST webhooks. For license plate recognition, use the [Viewtron LPR cameras](https://www.cctvcamerapros.com/License-Plate-Recognition-Systems-s/1518.htm). All Viewtron products are NDAA compliant.
+
+## Video Guides
+
+- [LPR Camera API Setup and Demo](https://videos.cctvcamerapros.com/v/lpr-camera-api.html) — video walkthrough of configuring webhooks and receiving events with the SDK
+- [AI Security Camera System Overview](https://videos.cctvcamerapros.com/v/ai-security-camera-system.html) — human detection, vehicle detection, and AI event types
+
 ## Questions & Development Inquiries
 
 - **Email:** mike@viewtron.com
