@@ -1,7 +1,7 @@
 ---
-title: "Node-RED IP Camera / AI Security Camera Integration"
+title: "Node-RED IP Camera Integration"
 sidebar_label: "Node-RED"
-description: "Receive AI detection events from Viewtron IP cameras in Node-RED, including License plate recognition (LPR/ALPR), human detection, vehicle detection, face detection, and people counting events. Node-RED recieved real time messages directly from Viewtron AI security cameras to flow with no middleware."
+description: "Receive AI detection events from Viewtron IP cameras in Node-RED. License plate recognition (LPR/ALPR), human detection, vehicle detection, face detection, and people counting — direct from camera to flow with no middleware."
 keywords:
   - node-red ip camera
   - node-red security camera
@@ -34,7 +34,7 @@ sidebar_position: 2
 
 # Node-RED IP Camera Integration
 
-The **Viewtron AI Camera** node for Node-RED receives AI detection events directly from Viewtron AI security cameras and outputs structured JSON messages. License plate recognition, human detection, vehicle detection, face detection, and people counting — all processed on the camera with no cloud service, no middleware, and no bridge required. The camera posts events directly to your Node-RED flow.
+The **Viewtron AI Camera** node for Node-RED receives AI detection events directly from Viewtron IP cameras and outputs structured JSON messages. License plate recognition, human detection, vehicle detection, face detection, and people counting — all processed on the camera with no cloud service, no middleware, and no bridge required. The camera posts events directly to your Node-RED flow.
 
 ```
 Viewtron IP Camera --> HTTP POST (XML) --> Viewtron AI Camera node --> JSON --> Your Flow
