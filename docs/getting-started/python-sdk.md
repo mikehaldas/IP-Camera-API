@@ -160,7 +160,7 @@ info = camera.get_device_info()
 print(info["model"])  # "LPR-IP4"
 
 # Manage the license plate database
-camera.add_plate("ABC1234", owner="Mike", list_type="whiteList")
+camera.add_plate("ABC1234")
 plates = camera.get_plates()
 camera.modify_plate("ABC1234", owner="Mike H.", telephone="555-1234")
 camera.delete_plate("ABC1234")
@@ -180,10 +180,11 @@ with ViewtronCamera("192.168.0.20", "admin", "password") as cam:
 | Method | Description |
 |--------|-------------|
 | `get_device_info()` | Get camera model, firmware version, device name |
-| `add_plate(plate, owner, list_type, group_id)` | Add a plate to the camera database |
-| `get_plates(group_id, max_results, offset)` | Query plates with pagination |
-| `modify_plate(plate, owner, telephone, group_id)` | Update plate details |
-| `delete_plate(plate, group_id)` | Remove a plate from the database |
+| `add_plate(plate_number, group_id="1")` | Add a plate to the camera database |
+| `add_plates(plate_numbers, group_id="1")` | Add multiple plates in one request |
+| `get_plates(max_results=50, offset=1, group_id="1")` | Query plates with pagination (offset is 1-based) |
+| `modify_plate(plate_number, group_id="1", owner=None, telephone=None)` | Update plate details |
+| `delete_plate(plate_number, group_id="1")` | Remove a plate from the database |
 
 See the [LPR Config API reference](/docs/api-reference/smart-detection/license-plate-recognition-config) for the underlying XML endpoints.
 
