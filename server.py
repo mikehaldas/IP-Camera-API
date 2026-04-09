@@ -18,7 +18,7 @@ mike@cctvcamerapros.net
 from socketserver import ThreadingMixIn
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from datetime import datetime as dt
-from viewtron import *
+from viewtron import ViewtronEvent
 import xmltodict
 import base64
 import csv
@@ -198,28 +198,6 @@ def print_traject_stats():
                 print(f"  {tid:<10} {info['last_type']:<10} {info['post_count']:<8} {dur_str:<12} {rate_str:<10} {info['last_rect']}")
         print(f"{'='*70}\n")
 
-# the alarm type in the XML Post determined the object class we need to instantiate
-# there is a type on some early camera firmwares for VEHICLE alarms
-class_lookup = {
-    'VEHICE':  {'class': LPR},
-    'VEHICLE': {'class': LPR},
-    'VFD':     {'class': FaceDetection},
-    'VSD':     {'class': VideoMetadata},
-    'AOILEAVE':{'class': IntrusionExit},
-    'AOIENTRY':{'class': IntrusionEntry},
-    'PEA':     {'class': IntrusionDetection}
-}
-
-# NVR v2.0 alarm types (different XML structure than IPC v1.x)
-v2_class_lookup = {
-    'regionIntrusion':       {'class': RegionIntrusion},
-    'lineCrossing':          {'class': LineCrossing},
-    'targetCountingByLine':  {'class': TargetCountingByLine},
-    'targetCountingByArea':  {'class': TargetCountingByArea},
-    'videoMetadata':         {'class': VideoMetadataV2},
-    'vehicle':               {'class': VehicleLPR},
-    'videoFaceDetect':       {'class': FaceDetectionV2},
-}
 
 def get_lan_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -294,61 +272,17 @@ class handler(BaseHTTPRequestHandler):
             return
 
         try:
-            data = xmltodict.parse(text)
-            config = data.get('config', {})
-            version = config.get('@version', '')
+            VT = ViewtronEvent(text)
+            if VT is None:
+                return
 
-            # === NVR v2.0 FORMAT ===
-            if version.startswith('2'):
-                msg_type = str(config.get('messageType', '')).strip()
-
-                if msg_type == 'keepalive':
-                    device_info = config.get('deviceInfo', {})
-                    dev_ip = device_info.get('ip', client_ip)
-                    print(f"v2.0 KEEPALIVE from {dev_ip} at {dt.now().strftime('%H:%M:%S')}")
-                    return
-
-                if msg_type == 'alarmStatus':
-                    device_info = config.get('deviceInfo', {})
-                    ch = device_info.get('channelId', '?')
-                    status_info = config.get('alarmStatusInfo', {})
-                    print(f"v2.0 ALARM STATUS ch{ch} from {client_ip}: {status_info}")
-                    return
-
-                if msg_type == 'alarmData':
-                    smart_type = str(config.get('smartType', '')).strip()
-                    if smart_type not in v2_class_lookup:
-                        print(f"v2.0 unknown smartType: [{smart_type}] from {client_ip}")
-                        return
-                    print(f"v2.0 alarm_type: [{smart_type}] from {client_ip}")
-                    VT = v2_class_lookup[smart_type]['class'](text)
-                else:
-                    print(f"v2.0 unknown messageType: [{msg_type}] from {client_ip}")
-                    return
-
-            # === IPC v1.x FORMAT ===
-            else:
-                st = config.get('smartType', {})
-                if isinstance(st, dict):
-                    alarm_type = st.get('#text') or st.get('value') or st.get('@type') or ''
-                else:
-                    alarm_type = str(st)
-                alarm_type = alarm_type.strip()
-
-                if alarm_type not in class_lookup:
-                    return
-
-                # alarm_type in the Post determines which class we need to instantiate
-                print(f"alarm_type: [{alarm_type}] from {client_ip}")
-                VT = class_lookup[alarm_type]['class'](text)
-
-            print(f"Object Alarm Type {VT.get_alarm_type()} object")
+            print(f"[{VT.category}] {VT.get_alarm_type()} from {client_ip}")
             alarm_descript = VT.get_alarm_description()
             print(f"Alarm Description: {alarm_descript}")
             VT.set_ip_address(client_ip)
 
             # process license plate recognition events
-            if VT.get_alarm_type() in ['VEHICLE', 'VEHICE', 'vehicle']:
+            if VT.category == 'lpr':
                 print("LPR event detected!")
                 plate = VT.get_plate_number()
                 print(f"Plate Number: {plate}")
@@ -364,7 +298,7 @@ class handler(BaseHTTPRequestHandler):
                     print("Is plate authorized: NO!")
                     plate_auth = "Plate NOT Authorized"
             # process face detection events
-            elif VT.get_alarm_type() in ['VFD', 'videoFaceDetect']:
+            elif VT.category == 'face':
                 print("Face Detection event!")
                 if hasattr(VT, 'get_face_age') and VT.get_face_age():
                     print(f"Face: {VT.get_face_age()} {VT.get_face_sex()}, glasses={VT.get_face_glasses()}, mask={VT.get_face_mask()}")
