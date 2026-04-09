@@ -13,7 +13,6 @@ mike@cctvcamerapros.net
 
 from viewtron import ViewtronServer
 from datetime import datetime as dt
-import base64
 import csv
 import os
 import sys
@@ -98,13 +97,13 @@ def on_event(VT, client_ip):
     # Does the event contain images and should we save them?
     if VT.images_exist() and SAVE_IMAGES:
         print("Post has images.")
-        for get_img, exists, suffix in [
-            (VT.get_source_image, VT.source_image_exists, "overview"),
-            (VT.get_target_image, VT.target_image_exists, "target")
+        for get_bytes, suffix in [
+            (VT.get_source_image_bytes, "overview"),
+            (VT.get_target_image_bytes, "target")
         ]:
-            if exists() and get_img():
+            img_data = get_bytes()
+            if img_data:
                 try:
-                    img_data = base64.b64decode(get_img())
                     name = f"{VT.get_time_stamp()}-{suffix}.jpg"
                     path = os.path.join(IMG_DIR, name)
                     with open(path, "wb") as f:
