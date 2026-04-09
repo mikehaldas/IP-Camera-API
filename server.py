@@ -77,12 +77,9 @@ def on_event(VT, client_ip):
         if hasattr(VT, 'get_car_brand') and VT.get_car_brand():
             print(f"Vehicle: {VT.get_car_color()} {VT.get_car_brand()} {VT.get_car_model()} ({VT.get_car_type()})")
 
-        if VT.is_plate_authorized():
-            print("Is plate authorized: Yes")
-            plate_auth = "Authorized Plate"
-        else:
-            print("Is plate authorized: NO!")
-            plate_auth = "Plate NOT Authorized"
+        plate_group = VT.get_plate_group()
+        plate_auth = plate_group if plate_group else "Not in database"
+        print(f"Plate Group: {plate_auth}")
     # process face detection events
     elif VT.category == 'face':
         print("Face Detection event!")
