@@ -1,7 +1,7 @@
 ---
 title: "Node-RED IP Camera Integration"
 sidebar_label: "Node-RED"
-description: "Receive AI detection events from Viewtron IP cameras in Node-RED. License plate recognition (LPR/ALPR), human detection, vehicle detection, face detection, and people counting — direct from camera to flow with no middleware."
+description: "Receive AI detection events from Viewtron IP cameras in Node-RED. License plate recognition (LPR/ALPR) with plate group access control, human detection, vehicle detection, face detection, and people counting — direct from camera to flow with no middleware."
 keywords:
   - node-red ip camera
   - node-red security camera
@@ -20,11 +20,13 @@ keywords:
   - node-red people counting
   - node-red gate access
   - node-red access control
+  - node-red license plate group
   - node-red ip camera api
   - node-red mqtt camera
   - node-red automation camera
   - node-red industrial camera
   - node-red iot camera
+  - node-red nvr
   - ip camera node-red
   - security camera node-red
   - lpr camera node-red
@@ -34,13 +36,15 @@ sidebar_position: 2
 
 # Node-RED IP Camera Integration
 
-The **Viewtron AI Camera** node for Node-RED receives AI detection events directly from Viewtron IP cameras and outputs structured JSON messages. License plate recognition, human detection, vehicle detection, face detection, and people counting — all processed on the camera with no cloud service, no middleware, and no bridge required. The camera posts events directly to your Node-RED flow.
+The **Viewtron AI Camera** node for Node-RED receives AI detection events directly from Viewtron IP cameras and NVRs, outputting structured JSON messages. License plate recognition, human detection, vehicle detection, face detection, and people counting — all processed on the camera with no cloud service, no middleware, and no bridge required. The camera posts events directly to your Node-RED flow.
 
 ```
 Viewtron IP Camera --> HTTP POST (XML) --> Viewtron AI Camera node --> JSON --> Your Flow
 ```
 
-![Viewtron AI Camera node in Node-RED with live LPR events](https://videos.cctvcamerapros.com/wp-content/files/Node-RED-LPR-camera-integration.jpg)
+Supports both direct camera connections (IPC v1.x) and NVR forwarding (v2.0) with automatic version detection. LPR is fully tested with the Viewtron LPR-IP4 camera and NVR. Other AI event types are supported and being documented.
+
+![Viewtron AI Camera node in Node-RED with live LPR events](https://videos.cctvcamerapros.com/wp-content/files/Node-RED-LPR-Camera.jpg)
 
 ## Install
 
@@ -69,13 +73,45 @@ The node has 5 outputs, one per detection category:
 
 | Output | Category | Key Fields |
 |--------|----------|------------|
-| 1 | **LPR** | `plate_number`, `plate_status` (Authorized / Blacklisted / Temporary / Unknown), `vehicle` (brand, color, type) |
+| 1 | **LPR** | `plate_number`, `plate_group` (raw value from camera/NVR plate database), `vehicle` (brand, color, type — NVR only) |
 | 2 | **Intrusion** | `target_type` (person, car, motorcycle), `event_id`, `status` |
 | 3 | **Face** | `face.age`, `face.sex`, `face.glasses`, `face.mask` |
 | 4 | **Counting** | `target_type`, `boundary` |
 | 5 | **Other** | Video metadata and unclassified events |
 
 Wire each output to the flow logic you need — separate handling for plates vs. people vs. faces.
+
+### LPR Fields (Output 1)
+
+| Field | IPC | NVR | Description |
+|-------|-----|-----|-------------|
+| `plate_number` | Yes | Yes | Detected license plate text |
+| `plate_group` | Yes | Yes | Plate database group — see [Plate Groups](#plate-groups) |
+| `plate_color` | No | Yes | Plate color (e.g., "white") |
+| `vehicle.type` | No | Yes | Vehicle type (e.g., "sedan", "SUV") |
+| `vehicle.color` | No | Yes | Vehicle color |
+| `vehicle.brand` | No | Yes | Vehicle brand (e.g., "Toyota") |
+| `vehicle.model` | No | Yes | Vehicle model |
+| `car_owner` | No | Yes | Owner name from NVR plate database |
+| `source_image` | Yes | Yes | Overview image (base64 JPEG) |
+| `source_image_bytes` | Yes | Yes | Overview image (Buffer — ready for file/dashboard/MQTT nodes) |
+| `target_image` | Yes | Yes | Plate crop image (base64 JPEG) |
+| `target_image_bytes` | Yes | Yes | Plate crop image (Buffer) |
+
+### IPC vs NVR
+
+You can connect cameras directly to Node-RED (IPC mode) or route them through an NVR (NVR mode). Both work — the node detects the format automatically.
+
+| | IPC (Direct) | NVR (Forwarded) |
+|---|---|---|
+| **Connection** | Camera → Node-RED | Camera → NVR → Node-RED |
+| **XML Version** | v1.x | v2.0 |
+| **Plate detection** | Yes | Yes |
+| **Plate database groups** | Fixed: whiteList, blackList, temporaryList | User-defined: any group name |
+| **Vehicle attributes** | No | Yes (brand, color, type, model) |
+| **Owner from database** | No | Yes |
+| **Channel ID** | No | Yes (which NVR channel) |
+| **Images** | Yes (both) | Yes (both) |
 
 ### Common Fields
 
@@ -91,19 +127,45 @@ Every event message includes:
 
 ### Images
 
-When **Original picture** and **Target picture** are enabled on the camera, `msg.payload.source_image` (full scene) and `msg.payload.target_image` (cropped detection target) are included as base64 JPEG strings. These payloads can be large (300KB+) — leave the camera image options unchecked if you only need the detection data.
+When **Original picture** and **Target picture** are enabled on the camera, events include both base64 strings and decoded Buffer bytes:
 
-The **Include images** checkbox on the node controls whether images are passed through to the output or stripped.
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_image` | string | Full scene image as base64 JPEG |
+| `source_image_bytes` | Buffer | Full scene image as decoded JPEG bytes |
+| `target_image` | string | Cropped target (plate, face) as base64 JPEG |
+| `target_image_bytes` | Buffer | Cropped target as decoded JPEG bytes |
+
+The Buffer fields are ready to pipe directly to file nodes, dashboard image widgets, or MQTT nodes. The base64 fields are useful for embedding in HTML or sending via API.
+
+![Viewtron LPR camera dashboard in Node-RED](https://videos.cctvcamerapros.com/wp-content/files/Node-RED-LPR-Camera-Dashboard.jpg)
+
+To display plate images in a Node-RED dashboard, wire the LPR output (output 1) to a **ui-template** node (requires [Dashboard 2.0](https://flows.nodered.org/node/@flowfuse/node-red-dashboard)):
+
+```html
+<div v-if="msg?.payload?.plate_number">
+  <h3>{{ msg.payload.plate_number }} — {{ msg.payload.plate_group || "unknown" }}</h3>
+</div>
+<div v-if="msg?.payload?.source_image" style="margin-bottom:10px">
+  <img :src="'data:image/jpeg;base64,' + msg.payload.source_image" style="width:100%" />
+</div>
+<div v-if="msg?.payload?.target_image">
+  <img :src="'data:image/jpeg;base64,' + msg.payload.target_image" style="width:100%" />
+</div>
+```
+
+These payloads can be large (300KB+) — the **Include images** checkbox on the node controls whether images are passed through to the output or stripped.
 
 ## What You Can Build
 
-- **Gate and garage access** — read license plates and trigger relay nodes to open gates for authorized vehicles
-- **Unknown vehicle alerts** — send Telegram, email, or push notifications when an unrecognized plate is detected
+- **Gate and parking access control** — use plate groups to control access: "Residents" opens the gate, "Delivery" opens during business hours, "Banned" triggers security alerts
+- **Unknown vehicle alerts** — send Telegram, email, or push notifications when a plate with no group (not in the database) is detected
 - **Person detection lighting** — trigger smart lighting when a person is detected in a zone
 - **Intrusion alarms** — wire to siren or alarm panel nodes when someone enters a restricted area
+- **LPR dashboards** — display live plate reads with images using Dashboard 2.0 template widgets
 - **Vehicle counting dashboards** — feed counting data to InfluxDB + Grafana for parking or traffic analytics
 - **MQTT republishing** — forward structured events to an MQTT broker for consumption by Home Assistant, AWS IoT, or other subscribers
-- **Multi-camera routing** — use Switch nodes to route events by camera IP, detection type, or plate status
+- **Multi-camera routing** — use Switch nodes to route events by camera IP, detection type, or plate group
 
 ## Camera Setup
 
@@ -137,36 +199,42 @@ The camera's HTTP POST settings have a **Push Protocol Version** dropdown. You m
 | **Send Heartbeat** | Checked |
 | **Heartbeat Interval** | 30 seconds |
 | **Smart Alarm Data** | Check **Smart event data** |
-| **Original picture** | Optional — include full scene image in events |
-| **Target picture** | Optional — include cropped target image in events |
+| **Original picture** | Check to include full scene image in events |
+| **Target picture** | Check to include cropped target image in events |
 | **Smart Alarm Type** | Select the detection types you want (e.g., License Plate Detection) |
 
 Click **Save**, then deploy your flow in Node-RED. The camera must be rebooted after initial HTTP POST configuration changes.
 
 ### Connection Status
 
-The camera maintains a persistent HTTP connection and sends heartbeats to confirm the server is reachable. The node status shows a green dot when listening and updates with the latest event data (e.g., plate number and status).
+The camera maintains a persistent HTTP connection and sends heartbeats to confirm the server is reachable. The node status shows a green dot when listening and updates with the latest event data (e.g., plate number and group).
 
-## Plate Status
+## Plate Groups
 
-The LPR camera maintains an on-device plate database. Each detected plate is matched against the database and assigned a status:
+The `plate_group` field contains the raw value from the camera or NVR plate database. Your flow decides what each group means — this is how you implement access control policies with different actions for different groups.
 
-| Status | Meaning |
-|--------|---------|
-| **Authorized** | Plate is on the camera's allow list |
-| **Blacklisted** | Plate is on the camera's block list |
-| **Temporary** | Plate is on a temporary list with a valid date range |
-| **Unknown** | Plate is not in the database, or a listed plate with an expired date range |
+**IPC cameras** use fixed group names (these are the raw XML values):
+
+| plate_group | Camera UI Label |
+|-------------|----------------|
+| `whiteList` | Allow list |
+| `blackList` | Block list |
+| `temporaryList` | Temporary vehicle |
+| *(empty)* | Not in database |
+
+**NVRs** use user-defined group names — you create groups and name them whatever you want (e.g., "Residents", "Delivery", "Banned", "Temporary Visitor"). The `plate_group` field shows the group name, or empty if the plate is not in the database.
+
+**Access control example:** A gated community could set up NVR plate groups like "Residents", "Management", and "Delivery". In Node-RED, a Switch node routes each group to a different action — residents open the main gate, delivery opens the service entrance during business hours, and unrecognized plates trigger a notification to security.
 
 :::note Date Range Validation
-Date range validation applies to all list types — not just temporary plates. An allow list or block list plate with an expired end date will also come through as Unknown. The camera validates dates internally and simply omits the `vehicleListType` field when a plate is outside its valid range.
+Date range validation applies to all list types — not just temporary plates. An allow list or block list plate with an expired end date will have an empty `plate_group`. The camera validates dates internally.
 :::
 
-Plates are added to the camera's database through its web interface or via the [Viewtron API](/docs/api-reference/smart-detection/license-plate-recognition-config).
+Plates are added to the camera's database through its web interface or programmatically via the [Viewtron Python SDK](https://pypi.org/project/viewtron/) or the [Viewtron API](/docs/api-reference/smart-detection/license-plate-recognition-config).
 
 ## Example: LPR Gate Access
 
-Import this flow to get started with license plate gate access control. The Viewtron AI Camera node reads plates, and a Switch node routes authorized vehicles to one action and unknown vehicles to another.
+Import this flow to get started with license plate gate access control. The Viewtron AI Camera node reads plates, and a Switch node routes plates based on their group.
 
 ```json
 [
@@ -181,11 +249,11 @@ Import this flow to get started with license plate gate access control. The View
     {
         "id": "switch1",
         "type": "switch",
-        "name": "Authorized?",
-        "property": "payload.plate_status",
+        "name": "Check Group",
+        "property": "payload.plate_group",
         "rules": [
-            {"t": "eq", "v": "Authorized"},
-            {"t": "eq", "v": "Unknown"}
+            {"t": "eq", "v": "whiteList"},
+            {"t": "else"}
         ],
         "outputs": 2,
         "wires": [["gate_open"], ["notify"]]
@@ -203,7 +271,7 @@ Import this flow to get started with license plate gate access control. The View
 ]
 ```
 
-Replace the debug nodes with your actual gate control and notification nodes. The `msg.payload.plate_number` field is available in both outputs for logging or display.
+Replace the debug nodes with your actual gate control and notification nodes. For NVR setups, change `"whiteList"` to your group name (e.g., `"Residents"`).
 
 ## Supported Event Types
 
@@ -237,7 +305,23 @@ Version detection is automatic — the node handles both IPC and NVR formats tra
 | Setting | Default | Description |
 |---------|---------|-------------|
 | **Port** | 5002 | HTTP listener port for camera events |
-| **Include images** | Off | Pass base64 JPEG images through to output (`source_image`, `target_image`) |
+| **Include images** | Off | Pass JPEG images through to output (`source_image`, `target_image`, and their `_bytes` equivalents) |
+
+## Troubleshooting
+
+**Camera shows "Online" but no events appear:**
+The camera's persistent connection is alive (heartbeats work) but alarm events may not be flowing. Try:
+1. Reboot the camera — required after changing HTTP POST settings
+2. Check that **Smart event data** and the correct **Smart Alarm Type** are enabled
+3. For NVR: ensure License Plate Detection is enabled in the HTTP Post settings
+
+**Debug tool:** A standalone debug server is included in the [GitHub repo](https://github.com/mikehaldas/node-red-contrib-viewtron) for diagnosing connection issues:
+
+```bash
+node debug-server.js 5002
+```
+
+This logs every HTTP POST with full headers, body preview, and post classification (keepalive, alarm data, etc.) — no filtering.
 
 ## Node-RED vs. Home Assistant
 
@@ -268,7 +352,7 @@ All Viewtron products are NDAA compliant.
 ## Resources
 
 - **npm:** [node-red-contrib-viewtron](https://www.npmjs.com/package/node-red-contrib-viewtron)
-- **GitHub:** [node-red-contrib-viewtron](https://github.com/mikehaldas/node-red-contrib-viewtron) — source code, example flows, issue tracker
+- **GitHub:** [node-red-contrib-viewtron](https://github.com/mikehaldas/node-red-contrib-viewtron) — source code, example flows, debug tools, issue tracker
 - **Python SDK:** [viewtron on PyPI](https://pypi.org/project/viewtron/) — `pip install viewtron` for Python projects
 - **Home Assistant:** [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) — MQTT bridge for Home Assistant
 
@@ -276,7 +360,7 @@ All Viewtron products are NDAA compliant.
 
 - [Home Assistant Integration](/docs/integrations/home-assistant) — MQTT-based integration for smart home automations
 - [Viewtron Python SDK](/docs/getting-started/python-sdk) — Python SDK for direct camera API access
-- [License Plate Recognition](/docs/applications/license-plate-recognition-camera-api) — LPR application guide
+- [License Plate Recognition](/docs/applications/license-plate-recognition-camera-api) — LPR application guide with plate database API
 - [Human Detection](/docs/applications/human-detection-intrusion-api) — person and vehicle detection events
 - [Face Detection](/docs/applications/face-detection-recognition-api) — face detection and recognition
 - [HTTP POST Setup](/docs/getting-started/http-post-setup) — camera webhook configuration guide
