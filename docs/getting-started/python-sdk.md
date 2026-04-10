@@ -19,12 +19,13 @@ sidebar_position: 6
 
 # Viewtron Python SDK
 
-The Viewtron Python SDK (`pip install viewtron`) is the recommended way to work with the Viewtron IP Camera API. It handles two things:
+The Viewtron Python SDK (`pip install viewtron`) is the recommended way to work with the Viewtron IP Camera API. It handles three things:
 
-1. **Inbound events** — parse XML alarm events from cameras into Python objects (LPR, face detection, intrusion, counting)
-2. **Outbound API** — control cameras and manage plate databases programmatically
+1. **Event server** — built-in HTTP server that receives camera webhook events, handles persistent connections and keepalives
+2. **Event parsing** — automatically detects IPC v1.x vs NVR v2.0 format and returns typed Python objects
+3. **Camera control** — send commands to cameras and manage plate databases programmatically
 
-The SDK handles all XML formatting, API version differences (IPC v1.x vs NVR v2.0), and authentication automatically.
+The SDK handles all XML formatting, API version differences, HTTP connection management, and authentication automatically.
 
 ## Install
 
@@ -32,32 +33,65 @@ The SDK handles all XML formatting, API version differences (IPC v1.x vs NVR v2.
 pip install viewtron
 ```
 
-Requires Python 3.7+. Dependencies: `requests`, `xmltodict`.
+Requires Python 3.8+. Dependencies: `requests`, `xmltodict`.
 
 Source code: [github.com/mikehaldas/viewtron-python-sdk](https://github.com/mikehaldas/viewtron-python-sdk)
 
-## Inbound Events — Parse Camera Alarm Data
+## Receiving Events — ViewtronServer
 
-Viewtron cameras send AI detection events as HTTP POST requests with XML payloads. The SDK parses these into Python objects with typed accessors for every field.
+The `ViewtronServer` class is a complete HTTP server that receives webhook events from Viewtron cameras. It handles HTTP/1.1 persistent connections, keepalive messages, multi-threaded request handling, and XML response — you just write the callback.
 
-### Quick Example
+```python
+from viewtron import ViewtronServer
+
+def on_event(event, client_ip):
+    print(f"[{event.category}] from {client_ip}")
+
+    if event.category == "lpr":
+        print(f"  Plate: {event.get_plate_number()}")
+        print(f"  Group: {event.get_plate_group()}")
+
+    # Save images
+    overview = event.get_source_image_bytes()   # decoded JPEG bytes
+    if overview:
+        with open("overview.jpg", "wb") as f:
+            f.write(overview)
+
+server = ViewtronServer(port=5002, on_event=on_event)
+server.serve_forever()
+```
+
+Point your camera's HTTP POST at `<your-server-ip>:5002` and events start flowing. No XML parsing, no base64 decoding, no keepalive handling — the SDK does it all.
+
+### Server Options
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `port` | `5002` | HTTP listener port |
+| `on_event` | required | Callback for alarm events — receives `(event, client_ip)` |
+| `on_traject` | `None` | Callback for real-time tracking data — receives `(traject, client_ip)` |
+
+### ViewtronEvent — Parse Any Event
+
+If you're building your own HTTP server or processing saved XML, use `ViewtronEvent` directly:
 
 ```python
 from viewtron import ViewtronEvent
 
-# In your HTTP POST handler, pass the raw request body:
-event = ViewtronEvent(request_body)
+event = ViewtronEvent(xml_body)
 if event is None:
-    return  # keepalive or unrecognized
+    return  # keepalive, alarm status, or unrecognized
 
-print(event.category)                 # "lpr"
+print(event.category)                 # "lpr", "intrusion", "face", "counting", "metadata"
 print(event.get_plate_number())       # "ABC1234"
-print(event.get_plate_group())        # "whiteList" (IPC) or group name (NVR)
+print(event.get_plate_group())        # "whiteList" (IPC) or NVR group name
 
-# Images as decoded JPEG bytes
+# Images as decoded JPEG bytes — ready for saving, MQTT, notifications
 overview = event.get_source_image_bytes()    # full scene
 plate_crop = event.get_target_image_bytes()  # plate closeup
 ```
+
+`ViewtronEvent` automatically detects the API version (IPC v1.x vs NVR v2.0), identifies the event type from the `smartType` field, and returns the correct typed object. Returns `None` for keepalives, alarm status messages, and unrecognized event types.
 
 ### Event Classes
 
@@ -94,53 +128,37 @@ All event classes share these methods:
 
 | Method | Returns | Description |
 |--------|---------|-------------|
+| `category` | `str` | Event category: `"lpr"`, `"intrusion"`, `"face"`, `"counting"`, `"metadata"` |
 | `get_ip_cam()` | `str` | Camera IP address or device name |
-| `get_alarm_type()` | `str` | Detection type identifier (e.g., `PEA`, `VEHICE`) |
+| `get_alarm_type()` | `str` | Raw detection type from camera (e.g., `VEHICE`, `PEA`, `vehicle`) |
 | `get_alarm_description()` | `str` | Human-readable description |
-| `get_time_stamp()` | `str` | Raw timestamp from event |
 | `get_time_stamp_formatted()` | `str` | Formatted date/time string |
 | `source_image_exists()` | `bool` | Whether a full-frame image is included |
-| `get_source_image()` | `str` | Base64 JPEG of the full scene |
+| `get_source_image_bytes()` | `bytes` | Decoded JPEG of the full scene (ready to save or send) |
 | `target_image_exists()` | `bool` | Whether a target crop image is included |
-| `get_target_image()` | `str` | Base64 JPEG of the detected target |
+| `get_target_image_bytes()` | `bytes` | Decoded JPEG of the detected target |
+| `get_source_image()` | `str` | Base64-encoded full scene (use `_bytes()` for most cases) |
+| `get_target_image()` | `str` | Base64-encoded target crop |
 
-### Version Routing
+### LPR-Specific Methods
 
-Your HTTP server receives events from both IPC and NVR sources. Route to the correct class based on the XML version:
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_plate_number()` | `str` | Detected plate text |
+| `get_plate_group()` | `str` | Plate database group: `"whiteList"`, `"blackList"`, `"temporaryList"` (IPC), or user-defined group name (NVR). Empty string if plate is not in the database. |
+| `get_car_brand()` | `str` | Vehicle brand (NVR v2.0 only) |
+| `get_car_model()` | `str` | Vehicle model (NVR v2.0 only) |
+| `get_car_type()` | `str` | Vehicle type: sedan, suv, mpv, etc. (NVR v2.0 only) |
+| `get_car_color()` | `str` | Vehicle color (NVR v2.0 only) |
 
-```python
-import xmltodict
-from viewtron import (
-    LPR, VehicleLPR,
-    IntrusionDetection, RegionIntrusion,
-    FaceDetection, FaceDetectionV2,
-)
+### Face Detection Methods (NVR v2.0)
 
-def handle_post(body):
-    data = xmltodict.parse(body)
-    config = data.get('config', {})
-    version = config.get('@version', '')
-
-    if version.startswith('2'):
-        # NVR v2.0 format
-        smart_type = str(config.get('smartType', ''))
-        if smart_type == 'vehicle':
-            event = VehicleLPR(body)
-        elif smart_type == 'regionIntrusion':
-            event = RegionIntrusion(body)
-        elif smart_type == 'faceDetection':
-            event = FaceDetectionV2(body)
-    else:
-        # IPC v1.x format
-        st = config.get('smartType', {})
-        alarm = (st.get('#text') or str(st)).strip() if isinstance(st, dict) else str(st).strip()
-        if alarm == 'VEHICE':
-            event = LPR(body)
-        elif alarm == 'PEA':
-            event = IntrusionDetection(body)
-        elif alarm == 'FACE':
-            event = FaceDetection(body)
-```
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_face_age()` | `str` | Age range: young, youth, middleAged, elderly, unknown |
+| `get_face_sex()` | `str` | male, female, unknown |
+| `get_face_glasses()` | `str` | yes, no, unknown |
+| `get_face_mask()` | `str` | yes, no, unknown |
 
 See each [application guide](/docs/category/applications) for complete working examples with image saving and CSV logging.
 
@@ -192,9 +210,9 @@ See the [LPR Config API reference](/docs/api-reference/smart-detection/license-p
 
 | Project | Description |
 |---------|-------------|
-| [Viewtron Home Assistant Integration](/docs/integrations/home-assistant) | Camera AI events as native HA sensors via MQTT auto-discovery |
-| [IP Camera API Server](https://github.com/mikehaldas/IP-Camera-API) | Alarm server with CSV logging and image saving |
-| [ESP8266 Relay Controller](/docs/applications/relay-control-iot-automation-api) | IoT relay triggered by camera detection events |
+| [Viewtron Home Assistant Integration](/docs/integrations/home-assistant) | Camera AI events as native HA sensors and images via MQTT auto-discovery |
+| [IP Camera API Server](https://github.com/mikehaldas/IP-Camera-API) | Alarm server with CSV logging and image saving — uses `ViewtronServer` |
+| [Node-RED Integration](/docs/integrations/node-red) | Camera events direct to Node-RED flows via npm package |
 
 ## Related Documentation
 
