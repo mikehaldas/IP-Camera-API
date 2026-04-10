@@ -35,7 +35,7 @@ pip install viewtron
 
 Requires Python 3.8+. Dependencies: `requests`, `xmltodict`.
 
-Source code: [github.com/mikehaldas/viewtron-python-sdk](https://github.com/mikehaldas/viewtron-python-sdk)
+Source code: [github.com/mikehaldas/viewtron-python-sdk](https://github.com/mikehaldas/viewtron-python-sdk) | Full API reference: [Python SDK Reference](/docs/category/python-sdk-reference)
 
 ## Receiving Events — ViewtronServer
 
