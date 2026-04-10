@@ -11,6 +11,9 @@ keywords:
 sidebar_position: 2
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # License Plate Recognition Camera API (LPR/ALPR)
 
 Viewtron AI security cameras include built-in license plate recognition (LPR/ALPR) that runs entirely on the camera hardware — no cloud service, external software, or third-party LPR engine required. When a vehicle passes through the camera's detection zone, the camera reads the license plate and sends an HTTP POST webhook to your server with the plate number, a cropped plate image, and (on NVR v2.0) detailed vehicle attributes including type, color, brand, and model.
@@ -32,12 +35,12 @@ The API also supports managing an on-camera plate database with whitelist and bl
 1. **Install an LPR camera** at the vehicle entry point — position the camera to capture plates at the correct angle and distance
 2. **Configure LPR detection** on the camera — set the plate region (U.S.A, Canada, Europe, etc.), sensitivity, and detection zone
 3. **Enable HTTP POST webhooks** — point the camera or NVR at your server's IP and port
-4. **Manage the plate database** (optional) — add plates to the whitelist or blacklist using the AddLicensePlates API with owner info
-5. **Your server receives XML** when a plate is read — the POST includes the plate number, authorization status, plate crop image, and vehicle attributes
-6. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
+4. **Manage the plate database** (optional) — add plates to the whitelist or blacklist using the [AddLicensePlates API](/docs/api-reference/smart-detection/license-plate-recognition-config#addlicenseplates) with owner info
+5. **Your server receives XML** when a plate is read — the POST includes the plate number, plate group status, plate crop image, and vehicle attributes
+6. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing in any language
 7. **Take action** — log the plate read, trigger a gate relay, send alerts, or update your database
 
-## Event Data Included
+## Event Data
 
 Each LPR webhook POST contains:
 
@@ -45,7 +48,8 @@ Each LPR webhook POST contains:
 |-------|-------------|
 | `smartType` | `VEHICE` (IPC) or `vehicle` (NVR) |
 | `plateNumber` / `licensePlateNumber` | Detected plate text (e.g., `JP116D`) |
-| `vehicleListType` | `whiteList`, `blackList`, `temporaryList`, or absent if not in database (IPC v1.x). Temporary plates outside their valid date range also have this field absent. |
+| `vehicleListType` | IPC: `whiteList`, `blackList`, `temporaryList`, or absent if not in database |
+| `licensePlateMatchInfo/groupName` | NVR: user-defined group name (e.g., "Whitelist", "Residents"), or absent if not in database |
 | `licensePlateAttribute/color` | Plate color (NVR v2.0) |
 | `carAttribute/carType` | Vehicle type: `sedan`, `suv`, `mpv`, `truck`, etc. (NVR v2.0) |
 | `carAttribute/color` | Vehicle color (NVR v2.0) |
@@ -56,11 +60,52 @@ Each LPR webhook POST contains:
 | `sourceBase64Data` | Full-frame overview JPEG image (base64 encoded, ~400-500 KB) |
 | `currentTime` | Detection timestamp |
 
-## Webhook XML Examples
+## Parsing LPR Events
 
-### NVR Format (v2.0) — vehicle
+<Tabs>
+  <TabItem value="python-server" label="Python SDK (Server)" default>
 
-The NVR v2.0 format uses `licensePlateListInfo` instead of `eventInfo` + `targetListInfo`, with detailed vehicle attributes including type, color, brand, and model.
+The simplest way to receive LPR events. The SDK's `ViewtronServer` handles HTTP connections, keepalives, XML parsing, and version detection — you just write the callback:
+
+```bash
+pip install viewtron
+```
+
+```python
+from viewtron import ViewtronServer
+import os
+
+IMG_DIR = "images"
+os.makedirs(IMG_DIR, exist_ok=True)
+
+def on_event(event, client_ip):
+    if event.category != "lpr":
+        return
+
+    plate = event.get_plate_number()
+    group = event.get_plate_group()  # "whiteList", NVR group name, or ""
+    print(f"Plate: {plate} | Group: {group or 'Unknown'}")
+
+    # Save plate crop image
+    plate_jpg = event.get_target_image_bytes()
+    if plate_jpg:
+        with open(f"{IMG_DIR}/{plate}.jpg", "wb") as f:
+            f.write(plate_jpg)
+
+    # NVR v2.0 includes vehicle attributes
+    if event.get_alarm_type() == "vehicle":
+        print(f"  Vehicle: {event.get_car_brand()} {event.get_car_model()}")
+
+server = ViewtronServer(port=5002, on_event=on_event)
+server.serve_forever()
+```
+
+See the [Python SDK reference](/docs/getting-started/python-sdk) for the full list of methods and event classes.
+
+  </TabItem>
+  <TabItem value="xml-nvr" label="NVR XML (v2.0)">
+
+The NVR v2.0 format uses `licensePlateListInfo` with detailed vehicle attributes and `licensePlateMatchInfo` for plate database group matching:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -73,11 +118,10 @@ The NVR v2.0 format uses `licensePlateListInfo` instead of `eventInfo` + `target
         <channelId>2</channelId>
     </deviceInfo>
     <smartType>vehicle</smartType>
-    <currentTime>18445822972087551616</currentTime>
+    <currentTime>1772210268473000</currentTime>
     <sourceDataInfo>
-        <dataType>0</dataType>
-        <width>0</width>
-        <height>0</height>
+        <sourceBase64Length>483768</sourceBase64Length>
+        <sourceBase64Data>... (base64 JPEG overview) ...</sourceBase64Data>
     </sourceDataInfo>
     <licensePlateListInfo>
         <item>
@@ -90,10 +134,9 @@ The NVR v2.0 format uses `licensePlateListInfo` instead of `eventInfo` + `target
                 <licensePlateNumber><![CDATA[JP116D]]></licensePlateNumber>
                 <color>white</color>
             </licensePlateAttribute>
-            <carRect>
-                <x1>1</x1><y1>0</y1>
-                <x2>1</x2><y2>0</y2>
-            </carRect>
+            <licensePlateMatchInfo>
+                <groupName><![CDATA[Whitelist]]></groupName>
+            </licensePlateMatchInfo>
             <carAttribute>
                 <carType><![CDATA[mpv]]></carType>
                 <color><![CDATA[white]]></color>
@@ -101,45 +144,46 @@ The NVR v2.0 format uses `licensePlateListInfo` instead of `eventInfo` + `target
                 <model><![CDATA[GMC_SAVANA]]></model>
             </carAttribute>
             <targetImageData>
-                <dataType>0</dataType>
-                <width>128</width>
-                <height>64</height>
-                <targetBase64Length>...</targetBase64Length>
-                <targetBase64Data>... (base64 JPEG of plate crop) ...</targetBase64Data>
+                <targetBase64Length>2760</targetBase64Length>
+                <targetBase64Data>... (base64 JPEG plate crop) ...</targetBase64Data>
             </targetImageData>
         </item>
     </licensePlateListInfo>
 </config>
 ```
 
-### IPC Format (v1.x) — VEHICE
+See the [NVR Event Format](/docs/api-reference/events/nvr-event-format) reference for the complete v2.0 XML structure.
+
+  </TabItem>
+  <TabItem value="xml-ipc" label="IPC XML (v1.x)">
+
+The IPC v1.x format uses `listInfo` with the plate number and whitelist/blacklist status:
 
 ```xml
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <config version="1.7" xmlns="http://www.ipc.com/ver10">
-  <smartType type="openAlramObj">VEHICE</smartType>
-  <deviceName type="string"><![CDATA[LPR Camera]]></deviceName>
-  <currentTime type="tint64">1774792701902505</currentTime>
-  <sourceDataInfo>
-    <sourceBase64Length type="uint32">418200</sourceBase64Length>
-    <sourceBase64Data type="jpegBase64">... (base64 JPEG overview) ...</sourceBase64Data>
-  </sourceDataInfo>
-  <listInfo type="list" count="2">
-    <item>
-      <targetImageData>
-        <targetBase64Length type="uint32">52480</targetBase64Length>
-        <targetBase64Data type="jpegBase64">... (base64 JPEG overview crop) ...</targetBase64Data>
-      </targetImageData>
-    </item>
-    <item>
-      <plateNumber type="string"><![CDATA[ABC1234]]></plateNumber>
-      <vehicleListType type="string">whiteList</vehicleListType>
-      <targetImageData>
-        <targetBase64Length type="uint32">8640</targetBase64Length>
-        <targetBase64Data type="jpegBase64">... (base64 JPEG plate crop) ...</targetBase64Data>
-      </targetImageData>
-    </item>
-  </listInfo>
+    <smartType type="openAlramObj">VEHICE</smartType>
+    <currentTime type="tint64">1732045234584193</currentTime>
+    <sourceDataInfo>
+        <sourceBase64Length type="uint32">418200</sourceBase64Length>
+        <sourceBase64Data type="string">... (base64 JPEG overview) ...</sourceBase64Data>
+    </sourceDataInfo>
+    <listInfo type="list" count="2">
+        <item>
+            <targetImageData>
+                <targetBase64Length type="uint32">52480</targetBase64Length>
+                <targetBase64Data type="string">... (base64 JPEG overview crop) ...</targetBase64Data>
+            </targetImageData>
+        </item>
+        <item>
+            <plateNumber type="string"><![CDATA[ABC1234]]></plateNumber>
+            <vehicleListType type="string">whiteList</vehicleListType>
+            <targetImageData>
+                <targetBase64Length type="uint32">8640</targetBase64Length>
+                <targetBase64Data type="string">... (base64 JPEG plate crop) ...</targetBase64Data>
+            </targetImageData>
+        </item>
+    </listInfo>
 </config>
 ```
 
@@ -147,153 +191,73 @@ The NVR v2.0 format uses `licensePlateListInfo` instead of `eventInfo` + `target
 The IPC smartType uses `VEHICE` (note the typo in the firmware — not `VEHICLE`). The NVR uses `vehicle`.
 :::
 
-## Quick Start Example
+See the [IPC Event Format](/docs/api-reference/events/ipc-event-format) reference for the complete v1.x XML structure.
 
-This standalone script listens for LPR events from both IPC (v1.x) and NVR (v2.0) formats. It prints the plate number, authorization status, and vehicle attributes, saves both the overview image and plate crop, and logs everything to CSV:
+  </TabItem>
+</Tabs>
+
+## Managing the Plate Database
+
+The LPR camera maintains an on-device plate database. Use the [Viewtron Python SDK](/docs/getting-started/python-sdk) or the raw API to manage plates:
+
+<Tabs>
+  <TabItem value="python" label="Python SDK" default>
 
 ```python
-#!/usr/bin/env python3
-"""License Plate Recognition Event Receiver — Viewtron IP Camera API"""
+from viewtron import ViewtronCamera
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime as dt
-import xmltodict
-import base64
-import csv
-import os
+camera = ViewtronCamera("192.168.0.20", "admin", "password")
 
-# pip install xmltodict
-# pip install viewtron
-from viewtron import (LPR, VehicleLPR)
+# Add a plate to the allow list
+camera.add_plate("ABC1234")
 
-PORT = 5002
-IMG_DIR = "images"
-CSV_FILE = "lpr_events.csv"
-os.makedirs(IMG_DIR, exist_ok=True)
+# Query the database
+plates = camera.get_plates()
+for plate in plates:
+    print(plate["plate_number"], plate["owner"])
 
-class LPRHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        # Respond with success XML to keep connection alive
-        response = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        response += '<config version="1.0" xmlns="http://www.ipc.com/ver10">\n'
-        response += '  <status>success</status>\n</config>'
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/xml')
-        self.send_header('Content-Length', str(len(response)))
-        self.end_headers()
-        self.wfile.write(response.encode())
+# Update plate details
+camera.modify_plate("ABC1234", owner="Mike", telephone="555-1234")
 
-        # Read POST body
-        length = int(self.headers.get('Content-Length', 0))
-        if length == 0:
-            return
-        body = self.rfile.read(length).decode('utf-8', errors='replace')
-        if '<?xml' not in body:
-            return
-
-        try:
-            data = xmltodict.parse(body)
-            config = data.get('config', {})
-            version = config.get('@version', '')
-
-            plate_number = ''
-            authorized = ''
-            car_type = car_color = car_brand = car_model = ''
-
-            # Route to the correct SDK class based on API version
-            if version.startswith('2'):
-                msg_type = str(config.get('messageType', ''))
-                smart_type = str(config.get('smartType', ''))
-                if msg_type != 'alarmData' or smart_type != 'vehicle':
-                    return
-                event = VehicleLPR(body)
-                plate_number = event.get_plate_number()
-                authorized = 'N/A'  # NVR v2.0 does not include list type
-                car_type = event.get_car_type()
-                car_color = event.get_car_color()
-                car_brand = event.get_car_brand()
-                car_model = event.get_car_model()
-            else:
-                st = config.get('smartType', {})
-                alarm_type = (st.get('#text') or str(st)).strip() if isinstance(st, dict) else str(st).strip()
-                if alarm_type != 'VEHICE':
-                    return
-                event = LPR(body)
-                plate_number = event.get_plate_number()
-                plate_group = event.get_plate_group()
-                authorized = plate_group if plate_group else 'Unknown'
-
-            client_ip = self.client_address[0]
-
-            # Print event details
-            print(f"\n{'='*60}")
-            print(f"[{dt.now():%Y-%m-%d %H:%M:%S}] LICENSE PLATE DETECTED")
-            print(f"  Camera: {event.get_ip_cam()}")
-            print(f"  Source: {client_ip}")
-            print(f"  Plate: {plate_number}")
-            print(f"  Authorized: {authorized}")
-            if car_type:
-                print(f"  Vehicle: {car_type} | {car_color} | {car_brand} {car_model}")
-
-            # Save images
-            ts = event.get_time_stamp()
-            saved_files = []
-
-            # Overview image
-            if event.has_source_image and event.source_image:
-                path = os.path.join(IMG_DIR, f"{ts}-lpr-overview.jpg")
-                with open(path, "wb") as f:
-                    f.write(base64.b64decode(event.source_image))
-                saved_files.append(path)
-                print(f"  Overview: {path}")
-
-            # Plate crop image
-            if event.has_target_image and event.target_image:
-                path = os.path.join(IMG_DIR, f"{ts}-lpr-plate.jpg")
-                with open(path, "wb") as f:
-                    f.write(base64.b64decode(event.target_image))
-                saved_files.append(path)
-                print(f"  Plate crop: {path}")
-
-            # Log to CSV
-            with open(CSV_FILE, 'a', newline='') as f:
-                csv.writer(f).writerow([
-                    event.get_time_stamp_formatted(),
-                    event.get_ip_cam(),
-                    plate_number,
-                    authorized,
-                    car_type,
-                    car_color,
-                    car_brand,
-                    car_model,
-                    client_ip,
-                    "|".join(saved_files),
-                ])
-            print(f"  Logged to {CSV_FILE}")
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def log_message(self, format, *args):
-        pass  # Suppress default HTTP log output
-
-if __name__ == '__main__':
-    print(f"LPR Event Receiver running on port {PORT}")
-    print(f"Images will be saved to {IMG_DIR}/")
-    print(f"Events will be logged to {CSV_FILE}")
-    print(f"Waiting for license plate events...\n")
-    HTTPServer(('', PORT), LPRHandler).serve_forever()
+# Remove a plate
+camera.delete_plate("ABC1234")
 ```
 
-**To run:**
+  </TabItem>
+  <TabItem value="curl" label="curl">
 
 ```bash
-pip install xmltodict
-# pip install viewtron
-python3 lpr_receiver.py
+# Add a plate
+curl -u admin:password -X POST http://192.168.0.20/AddLicensePlates \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+  <licensePlates type="list" maxCount="100" count="1">
+    <item>
+      <index>1</index>
+      <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
+      <groupId><![CDATA[1]]></groupId>
+    </item>
+  </licensePlates>
+</config>'
+
+# Query the database
+curl -u admin:password -X POST http://192.168.0.20/GetLicensePlates \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+  <searchFilter>
+    <maxResult>50</maxResult>
+    <resultOffset>1</resultOffset>
+    <groupId><![CDATA[1]]></groupId>
+  </searchFilter>
+</config>'
 ```
 
-Then configure your camera or NVR to send HTTP POST events to `http://<your-server-ip>:5002/`.
+  </TabItem>
+</Tabs>
+
+See the [LPR Config API reference](/docs/api-reference/smart-detection/license-plate-recognition-config) for the complete plate database API including ModifyLicensePlate and DeleteLicensePlate.
 
 ## Relevant API Endpoints
 
@@ -311,14 +275,22 @@ Then configure your camera or NVR to send HTTP POST events to `http://<your-serv
 Viewtron LPR cameras include a Wiegand output that sends the plate number directly to gate controllers and access control panels. This works independently of the HTTP API — the camera can simultaneously send Wiegand signals to a gate controller and HTTP POST webhooks to your software.
 :::
 
+## Integrations
+
+Viewtron LPR cameras also integrate with automation platforms via published packages:
+
+| Platform | Package | What It Does |
+|----------|---------|-------------|
+| [Home Assistant](/docs/integrations/home-assistant) | [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) | Plate reads + images as native HA sensors via MQTT — automate gates, lights, alerts |
+| [Node-RED](/docs/integrations/node-red) | [node-red-contrib-viewtron](https://www.npmjs.com/package/node-red-contrib-viewtron) | Plate reads direct to Node-RED flows — no middleware needed |
+
 ## Related Applications
 
-- [Home Assistant Integration](/docs/integrations/home-assistant) — automate gates, lights, and alerts based on plate reads using native HA sensors
 - [Vehicle Detection & Parking Management](/docs/applications/vehicle-detection-parking-management-api) — detect vehicles without reading plates
 - [Relay Control & IoT Automation](/docs/applications/relay-control-iot-automation-api) — trigger gate relays based on plate authorization
 - [Webhook Event Notification](/docs/applications/webhook-event-notification-api) — complete webhook setup and format reference
 - [Human Detection & Intrusion Detection](/docs/applications/human-detection-intrusion-api) — detect people in the same zones
-- [Viewtron Python SDK](/docs/getting-started/python-sdk) — parse LPR events and manage the plate database programmatically
+- [Viewtron Python SDK](/docs/getting-started/python-sdk) — ViewtronServer, ViewtronEvent, and plate database management
 
 ## Related Products
 
