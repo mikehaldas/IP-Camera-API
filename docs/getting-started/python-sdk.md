@@ -212,7 +212,7 @@ See the [LPR Config API reference](/docs/api-reference/smart-detection/license-p
 |---------|-------------|
 | [Viewtron Home Assistant Integration](/docs/integrations/home-assistant) | Camera AI events as native HA sensors and images via MQTT auto-discovery |
 | [IP Camera API Server](https://github.com/mikehaldas/IP-Camera-API) | Alarm server with CSV logging and image saving — uses `ViewtronServer` |
-| [Node-RED Integration](/docs/integrations/node-red) | Camera events direct to Node-RED flows via npm package |
+| [ESP8266 Relay Controller](/docs/applications/relay-control-iot-automation-api) | IoT relay triggered by camera detection events |
 
 ## Related Documentation
 
