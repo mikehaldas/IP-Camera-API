@@ -6,4 +6,4 @@ events.csv
 ha_bridge.yaml
 ha_images/
 venv/
-docs/sdk-reference/
+docs/python-sdk-reference/
