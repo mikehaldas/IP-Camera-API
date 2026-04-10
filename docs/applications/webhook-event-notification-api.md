@@ -143,7 +143,7 @@ import csv
 import os
 
 # pip install xmltodict
-# Download viewtron.py from https://github.com/mikehaldas/IP-Camera-API
+# pip install viewtron
 from viewtron import *
 
 PORT = 5002
@@ -151,7 +151,7 @@ IMG_DIR = "images"
 CSV_FILE = "events.csv"
 os.makedirs(IMG_DIR, exist_ok=True)
 
-# Route alarm types to the correct viewtron.py class
+# Route alarm types to the correct SDK class
 IPC_CLASSES = {
     'PEA': IntrusionDetection, 'VFD': FaceDetection,
     'VEHICE': LPR, 'VEHICLE': LPR, 'VSD': VideoMetadata,

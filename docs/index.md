@@ -70,7 +70,7 @@ All [Viewtron IP cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1
 
 - **Python SDK** — [`pip install viewtron`](/docs/getting-started/python-sdk) — parse inbound AI events and control cameras programmatically. Handles all XML formatting and API version differences.
 - **Home Assistant Integration** — [connect Viewtron cameras to Home Assistant](/docs/integrations/home-assistant) via MQTT auto-discovery. LPR, human detection, face detection as native HA sensors.
-- **API Server & Examples** — [github.com/mikehaldas/IP-Camera-API](https://github.com/mikehaldas/IP-Camera-API) — working webhook receiver with the `viewtron.py` abstraction library
+- **API Server & Examples** — [github.com/mikehaldas/IP-Camera-API](https://github.com/mikehaldas/IP-Camera-API) — working webhook receiver with the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`)
 - **Markdown Documentation** — all documentation pages are available as Markdown files in the [GitHub docs directory](https://github.com/mikehaldas/IP-Camera-API/tree/main/docs) for easy integration with AI coding assistants and automated tools
 - **Single-File Reference** — the complete API documentation in [one searchable file](https://github.com/mikehaldas/IP-Camera-API/blob/main/docs/viewtron-api-guide.md) for quick reference and AI assistant ingestion
 - **Support Forum** — [NVR Webhook Setup Guide](https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks)

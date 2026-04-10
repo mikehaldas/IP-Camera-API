@@ -32,7 +32,7 @@ This is the most commonly used AI detection feature in the Viewtron API. You can
 1. **Configure an intrusion zone** on the camera — define a polygon region and enable object filters (person, car, motor)
 2. **Enable HTTP POST webhooks** — point the camera or NVR at your server's IP and port
 3. **Your server receives XML** when a detection occurs — the POST includes alarm type, target coordinates, zone boundary, and base64 images
-4. **Parse the event** using the [viewtron.py](https://github.com/mikehaldas/IP-Camera-API) library or raw XML parsing
+4. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
 5. **Take action** — save images, log to CSV, send alerts, trigger relays
 
 ## Event Data Included
@@ -155,7 +155,7 @@ import csv
 import os
 
 # pip install xmltodict
-# Download viewtron.py from https://github.com/mikehaldas/IP-Camera-API
+# pip install viewtron
 from viewtron import (IntrusionDetection, RegionIntrusion)
 
 PORT = 5002
@@ -188,7 +188,7 @@ class IntrusionHandler(BaseHTTPRequestHandler):
             config = data.get('config', {})
             version = config.get('@version', '')
 
-            # Route to the correct viewtron.py class
+            # Route to the correct SDK class based on API version
             if version.startswith('2'):
                 msg_type = str(config.get('messageType', ''))
                 smart_type = str(config.get('smartType', ''))
@@ -256,7 +256,7 @@ if __name__ == '__main__':
 
 ```bash
 pip install xmltodict
-# Place viewtron.py in the same directory
+# pip install viewtron
 python3 intrusion_receiver.py
 ```
 

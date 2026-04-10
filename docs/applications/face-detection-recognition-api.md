@@ -32,7 +32,7 @@ The camera also supports face recognition (matching) through an on-camera face s
 2. **Enable HTTP POST webhooks** — point the camera or NVR at your server's IP and port
 3. **Upload face samples** (optional) — add face images to the on-camera library for face recognition matching
 4. **Your server receives XML** when a face is detected — the POST includes a full scene image, cropped face image, and face attributes
-5. **Parse the event** using the [viewtron.py](https://github.com/mikehaldas/IP-Camera-API) library or raw XML parsing
+5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
 6. **Take action** — save face crops, log attributes to a database, send alerts on recognition matches
 
 ## Event Data Included
@@ -156,7 +156,7 @@ import csv
 import os
 
 # pip install xmltodict
-# Download viewtron.py from https://github.com/mikehaldas/IP-Camera-API
+# pip install viewtron
 from viewtron import (FaceDetection, FaceDetectionV2)
 
 PORT = 5002
@@ -191,7 +191,7 @@ class FaceHandler(BaseHTTPRequestHandler):
 
             age = sex = glasses = mask = ''
 
-            # Route to the correct viewtron.py class
+            # Route to the correct SDK class based on API version
             if version.startswith('2'):
                 msg_type = str(config.get('messageType', ''))
                 smart_type = str(config.get('smartType', ''))
@@ -274,7 +274,7 @@ if __name__ == '__main__':
 
 ```bash
 pip install xmltodict
-# Place viewtron.py in the same directory
+# pip install viewtron
 python3 face_receiver.py
 ```
 

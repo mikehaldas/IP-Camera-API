@@ -37,7 +37,7 @@ PVD (illegal parking detection) has not been fully tested via HTTP Post webhook 
 2. **Set the dwell time threshold** — configure how long a vehicle must remain parked before triggering an alert
 3. **Enable HTTP POST webhooks** — point the camera at your server's IP and port
 4. **Your server receives XML** when a violation occurs — the POST includes the PVD event data with images
-5. **Parse the event** using the [viewtron.py](https://github.com/mikehaldas/IP-Camera-API) library or raw XML parsing
+5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
 6. **Take action** — save violation images, log to CSV, send alerts, or trigger enforcement workflows
 
 ## Event Data Included
@@ -71,7 +71,7 @@ import csv
 import os
 
 # pip install xmltodict
-# Download viewtron.py from https://github.com/mikehaldas/IP-Camera-API
+# pip install viewtron
 from viewtron import IllegalParking
 
 PORT = 5002
@@ -170,7 +170,7 @@ if __name__ == '__main__':
 
 ```bash
 pip install xmltodict
-# Place viewtron.py in the same directory
+# pip install viewtron
 python3 parking_receiver.py
 ```
 

@@ -35,7 +35,7 @@ The key difference from [intrusion detection](/docs/applications/human-detection
 2. **Or configure a region entry/exit zone** — define a polygon region for AOI (Area of Interest) entry or exit detection
 3. **Enable HTTP POST webhooks** — point the camera or NVR at your server's IP and port
 4. **Your server receives XML** when a detection occurs — the POST includes alarm type, line coordinates, target bounding box, and base64 images
-5. **Parse the event** using the [viewtron.py](https://github.com/mikehaldas/IP-Camera-API) library or raw XML parsing
+5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
 6. **Take action** — save images, log to CSV, send alerts, trigger relays
 
 ## Event Data Included
@@ -165,7 +165,7 @@ import csv
 import os
 
 # pip install xmltodict
-# Download viewtron.py from https://github.com/mikehaldas/IP-Camera-API
+# pip install viewtron
 from viewtron import (IntrusionDetection, IntrusionEntry, IntrusionExit, LineCrossing)
 
 PORT = 5002
@@ -205,7 +205,7 @@ class LineCrossingHandler(BaseHTTPRequestHandler):
             config = data.get('config', {})
             version = config.get('@version', '')
 
-            # Route to the correct viewtron.py class
+            # Route to the correct SDK class based on API version
             if version.startswith('2'):
                 msg_type = str(config.get('messageType', ''))
                 smart_type = str(config.get('smartType', ''))
@@ -286,7 +286,7 @@ if __name__ == '__main__':
 
 ```bash
 pip install xmltodict
-# Place viewtron.py in the same directory
+# pip install viewtron
 python3 line_crossing_receiver.py
 ```
 

@@ -164,7 +164,7 @@ The **"Smart track data" checkbox must also be enabled** in the camera's HTTP Po
 
 ## Quick Start Example
 
-This standalone script listens for traject posts and displays a live updating console showing active targets, post rate, and dwell time. Since traject is not wrapped in a viewtron.py class, this example parses the XML directly with xmltodict:
+This standalone script listens for traject posts and displays a live updating console showing active targets, post rate, and dwell time. The SDK includes a `Traject` class for parsing these events, but this example shows the raw XML approach with xmltodict:
 
 ```python
 #!/usr/bin/env python3

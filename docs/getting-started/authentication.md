@@ -56,9 +56,9 @@ print(response.text)
 curl -u admin:123456 http://192.168.0.50/GetDeviceInfo
 ```
 
-## Using the viewtron.py Library
+## Using the Viewtron Python SDK
 
-The [Python API server](https://github.com/mikehaldas/IP-Camera-API) handles authentication automatically when receiving webhook events from cameras. For outbound API calls, include Basic Auth with every request as shown above.
+The [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) handles authentication automatically. The `ViewtronCamera` client includes Basic Auth with every request, and the `ViewtronServer` handles inbound webhook events from cameras.
 
 ## Notes
 

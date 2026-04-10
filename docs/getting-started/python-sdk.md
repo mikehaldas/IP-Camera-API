@@ -43,20 +43,20 @@ Viewtron cameras send AI detection events as HTTP POST requests with XML payload
 ### Quick Example
 
 ```python
-from viewtron import LPR, VehicleLPR
+from viewtron import ViewtronEvent
 
 # In your HTTP POST handler, pass the raw request body:
-event = LPR(request_body)
+event = ViewtronEvent(request_body)
+if event is None:
+    return  # keepalive or unrecognized
 
+print(event.category)                 # "lpr"
 print(event.get_plate_number())       # "ABC1234"
-print(event.is_plate_authorized())    # True
-print(event.get_vehicle_list_type())  # "whiteList"
+print(event.get_plate_group())        # "whiteList" (IPC) or group name (NVR)
 
-# Images are included as base64 JPEG
-if event.source_image_exists():
-    overview = event.get_source_image()    # full scene image
-if event.target_image_exists():
-    plate_crop = event.get_target_image()  # plate closeup
+# Images as decoded JPEG bytes
+overview = event.get_source_image_bytes()    # full scene
+plate_crop = event.get_target_image_bytes()  # plate closeup
 ```
 
 ### Event Classes

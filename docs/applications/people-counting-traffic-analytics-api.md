@@ -32,7 +32,7 @@ There are two counting methods available, each suited to different use cases. **
 1. **Configure a counting line or area** on the camera — draw a virtual line with a direction arrow, or define a polygon region
 2. **Enable HTTP POST webhooks** — point the camera or NVR at your server's IP and port
 3. **Your server receives XML** when a count event occurs — the POST includes the counting method, target coordinates, boundary geometry, and base64 images
-4. **Parse the event** using the [viewtron.py](https://github.com/mikehaldas/IP-Camera-API) library or raw XML parsing
+4. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
 5. **Track counts and take action** — maintain running entrance/exit totals, save images, log to CSV, trigger alerts at thresholds
 
 ## Counting Methods
@@ -225,7 +225,7 @@ import csv
 import os
 
 # pip install xmltodict
-# Download viewtron.py from https://github.com/mikehaldas/IP-Camera-API
+# pip install viewtron
 from viewtron import (TargetCountingByLine, TargetCountingByArea)
 
 PORT = 5002
@@ -341,7 +341,7 @@ if __name__ == '__main__':
 
 ```bash
 pip install xmltodict
-# Place viewtron.py in the same directory
+# pip install viewtron
 python3 counting_receiver.py
 ```
 

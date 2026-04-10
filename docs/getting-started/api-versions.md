@@ -74,7 +74,7 @@ See the [Webhook Events](/docs/api-reference/events/webhook-overview) section fo
 
 ## Using the Python Library
 
-The [viewtron.py](https://github.com/mikehaldas/IP-Camera-API) library abstracts the differences between v1.x and v2.0 webhook formats. Both versions expose the same method interface — `get_alarm_type()`, `get_plate_number()`, `get_source_image()`, etc. — so your application code works identically regardless of firmware version.
+The [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) abstracts the differences between v1.x and v2.0 webhook formats. Both versions expose the same method interface — `get_alarm_type()`, `get_plate_number()`, `get_source_image()`, etc. — so your application code works identically regardless of firmware version.
 
 ```python
 from viewtron import LPR, VehicleLPR

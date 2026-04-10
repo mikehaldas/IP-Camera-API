@@ -82,7 +82,7 @@ import os
 import threading
 
 # pip install xmltodict requests
-# Download viewtron.py from https://github.com/mikehaldas/IP-Camera-API
+# pip install viewtron
 from viewtron import (IntrusionDetection, RegionIntrusion)
 
 PORT = 5002
@@ -154,7 +154,7 @@ class DeterrentHandler(BaseHTTPRequestHandler):
             config = data.get('config', {})
             version = config.get('@version', '')
 
-            # Route to the correct viewtron.py class
+            # Route to the correct SDK class based on API version
             if version.startswith('2'):
                 msg_type = str(config.get('messageType', ''))
                 smart_type = str(config.get('smartType', ''))
@@ -230,7 +230,7 @@ if __name__ == '__main__':
 
 ```bash
 pip install xmltodict requests
-# Place viewtron.py in the same directory
+# pip install viewtron
 python3 deterrent_controller.py
 ```
 

@@ -33,7 +33,7 @@ Loitering detection differs from [intrusion detection](/docs/applications/human-
 2. **Enable object filters** — select which target types to monitor (person, vehicle, or both)
 3. **Enable HTTP POST webhooks** — point the camera at your server's IP and port
 4. **Your server receives XML** when loitering is detected — the POST includes alarm type, zone boundary, target bounding box, and base64 images
-5. **Parse the event** using the [viewtron.py](https://github.com/mikehaldas/IP-Camera-API) library or raw XML parsing
+5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
 6. **Take action** — save images, log to CSV, send alerts, trigger deterrent actions
 
 ## Event Data Included
@@ -111,7 +111,7 @@ import csv
 import os
 
 # pip install xmltodict
-# Download viewtron.py from https://github.com/mikehaldas/IP-Camera-API
+# pip install viewtron
 from viewtron import LoiteringDetection
 
 PORT = 5002
@@ -210,7 +210,7 @@ if __name__ == '__main__':
 
 ```bash
 pip install xmltodict
-# Place viewtron.py in the same directory
+# pip install viewtron
 python3 loitering_receiver.py
 ```
 
