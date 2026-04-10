@@ -36,7 +36,7 @@ sidebar_position: 2
 
 # Node-RED IP Camera Integration
 
-The **Viewtron AI Camera** node for Node-RED receives AI detection events directly from Viewtron IP cameras and NVRs, outputting structured JSON messages. License plate recognition, human detection, vehicle detection, face detection, and people counting — all processed on the camera with no cloud service, no middleware, and no bridge required. The camera posts events directly to your Node-RED flow.
+The **Viewtron AI Camera** node for Node-RED receives AI detection events directly from [Viewtron IP cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1512.htm) and [Viewtron NVRs](https://www.cctvcamerapros.com/IP-Camera-NVRs-s/1472.htm), outputting structured JSON messages. License plate recognition, human detection, vehicle detection, face detection, and people counting — all processed on the camera with no cloud service, no middleware, and no bridge required. The camera posts events directly to your Node-RED flow.
 
 ```
 Viewtron IP Camera --> HTTP POST (XML) --> Viewtron AI Camera node --> JSON --> Your Flow
