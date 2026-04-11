@@ -12,6 +12,9 @@ keywords:
 sidebar_position: 5
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # People Counting & Traffic Analytics API
 
 Viewtron AI cameras include built-in people counting that runs entirely on the camera hardware — no cloud service or external software required. When a person, vehicle, or motorcycle crosses a virtual counting line or enters a defined counting area, the camera sends an HTTP POST webhook to your server with the event data, including a full-frame overview image, a cropped image of the counted target, and the boundary or line coordinates that were crossed.
@@ -32,7 +35,7 @@ There are two counting methods available, each suited to different use cases. **
 1. **Configure a counting line or area** on the camera — draw a virtual line with a direction arrow, or define a polygon region
 2. **Enable HTTP POST webhooks** — point the camera or NVR at your server's IP and port
 3. **Your server receives XML** when a count event occurs — the POST includes the counting method, target coordinates, boundary geometry, and base64 images
-4. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
+4. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or [Node.js SDK](/docs/getting-started/nodejs-sdk)
 5. **Track counts and take action** — maintain running entrance/exit totals, save images, log to CSV, trigger alerts at thresholds
 
 ## Counting Methods
@@ -69,9 +72,91 @@ Objects are counted when they enter a defined polygon region. This is useful for
 | `targetBase64Data` | Cropped target JPEG image (base64 encoded) |
 | `currentTime` | Detection timestamp |
 
-## Webhook XML Examples
+## Parsing Counting Events
 
-### NVR Format (v2.0) — targetCountingByLine
+<Tabs>
+  <TabItem value="python-server" label="Python SDK" default>
+
+The simplest way to receive counting events. The SDK's `ViewtronServer` handles HTTP connections, keepalives, XML parsing, and version detection — you just write the callback:
+
+```bash
+pip install viewtron
+```
+
+```python
+from viewtron import ViewtronServer
+import os
+
+IMG_DIR = "images"
+os.makedirs(IMG_DIR, exist_ok=True)
+
+entrance_count = 0
+area_count = 0
+
+def on_event(event, client_ip):
+    global entrance_count, area_count
+    if event.category != "counting":
+        return
+
+    print(f"Counting event from {client_ip}")
+    print(f"  Type: {event.get_alarm_type()} ({event.get_alarm_description()})")
+
+    # Track running totals
+    entrance_count += 1
+    print(f"  Running total: {entrance_count}")
+
+    overview = event.get_source_image_bytes()
+    if overview:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-count-overview.jpg", "wb") as f:
+            f.write(overview)
+
+server = ViewtronServer(port=5002, on_event=on_event)
+server.serve_forever()
+```
+
+See the [Python SDK reference](/docs/getting-started/python-sdk) for the full list of methods and event classes.
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js SDK">
+
+```bash
+npm install viewtron-sdk
+```
+
+```javascript
+const { ViewtronServer } = require('viewtron-sdk');
+const fs = require('fs');
+
+fs.mkdirSync('images', { recursive: true });
+
+let entranceCount = 0;
+
+const server = new ViewtronServer({ port: 5002 });
+
+server.on('event', (event, clientIP) => {
+  if (event.category !== 'counting') return;
+  console.log(`Counting event from ${clientIP}`);
+  console.log(`  Type: ${event.eventType} (${event.targetType})`);
+  console.log(`  Boundary: ${event.boundary}`);
+
+  entranceCount++;
+  console.log(`  Running total: ${entranceCount}`);
+
+  if (event.sourceImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-count-overview.jpg`,
+      event.sourceImageBytes
+    );
+  }
+});
+
+server.start();
+```
+
+  </TabItem>
+  <TabItem value="xml-nvr-line" label="NVR XML — Line Count">
+
+The NVR v2.0 `targetCountingByLine` format includes a direction line and target classification:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -124,7 +209,10 @@ Objects are counted when they enter a defined polygon region. This is useful for
 The `rect` in `eventInfo` is all zeros for line counting. The target crop in `targetListInfo` still captures the person.
 :::
 
-### NVR Format (v2.0) — targetCountingByArea
+  </TabItem>
+  <TabItem value="xml-nvr-area" label="NVR XML — Area Count">
+
+The NVR v2.0 `targetCountingByArea` format includes the polygon zone boundary:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -175,6 +263,9 @@ The `rect` in `eventInfo` is all zeros for line counting. The target crop in `ta
 </config>
 ```
 
+  </TabItem>
+</Tabs>
+
 ## Polling Statistics (v2.0 IPC Only)
 
 For line counting, you can query the camera's cumulative entrance/exit counts directly without webhooks using the `GetPassLineCountStatistics` endpoint. This is useful for periodic polling or dashboard displays.
@@ -209,144 +300,6 @@ This returns separate entrance and exit counts for each object type (person, car
 Use `GetPassLineCountStatistics` for simple dashboard displays where you only need current totals. Use webhook events when you need per-event images, timestamps, and real-time processing.
 :::
 
-## Quick Start Example
-
-This standalone script listens for both line counting and area counting events, maintains running entrance/exit totals, saves images, and logs to CSV:
-
-```python
-#!/usr/bin/env python3
-"""People Counting Event Receiver — Viewtron IP Camera API"""
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime as dt
-import xmltodict
-import base64
-import csv
-import os
-
-# pip install xmltodict
-# pip install viewtron
-from viewtron import (TargetCountingByLine, TargetCountingByArea)
-
-PORT = 5002
-IMG_DIR = "images"
-CSV_FILE = "counting_events.csv"
-os.makedirs(IMG_DIR, exist_ok=True)
-
-# Running counts
-entrance_count = 0
-exit_count = 0
-area_count = 0
-
-class CountingHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        global entrance_count, exit_count, area_count
-
-        # Respond with success XML
-        response = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        response += '<config version="1.0" xmlns="http://www.ipc.com/ver10">\n'
-        response += '  <status>success</status>\n</config>'
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/xml')
-        self.send_header('Content-Length', str(len(response)))
-        self.end_headers()
-        self.wfile.write(response.encode())
-
-        # Read POST body
-        length = int(self.headers.get('Content-Length', 0))
-        if length == 0:
-            return
-        body = self.rfile.read(length).decode('utf-8', errors='replace')
-        if '<?xml' not in body:
-            return
-
-        try:
-            data = xmltodict.parse(body)
-            config = data.get('config', {})
-            smart_type = str(config.get('smartType', '')).strip()
-
-            if smart_type == 'targetCountingByLine':
-                event = TargetCountingByLine(body)
-                # Line counting — increment entrance count
-                # (direction logic depends on your line configuration)
-                entrance_count += 1
-                count_type = "LINE"
-                print(f"\n{'='*60}")
-                print(f"[{dt.now():%Y-%m-%d %H:%M:%S}] LINE COUNT EVENT")
-                print(f"  Camera: {event.get_ip_cam()}")
-                print(f"  Type: {event.get_alarm_description()}")
-                print(f"  Running Total — Entrances: {entrance_count}  Exits: {exit_count}")
-
-            elif smart_type == 'targetCountingByArea':
-                event = TargetCountingByArea(body)
-                area_count += 1
-                count_type = "AREA"
-                print(f"\n{'='*60}")
-                print(f"[{dt.now():%Y-%m-%d %H:%M:%S}] AREA COUNT EVENT")
-                print(f"  Camera: {event.get_ip_cam()}")
-                print(f"  Type: {event.get_alarm_description()}")
-                print(f"  Running Total — Area Entries: {area_count}")
-
-            else:
-                return  # Not a counting event
-
-            client_ip = self.client_address[0]
-            print(f"  Source: {client_ip}")
-            print(f"  Time: {event.get_time_stamp_formatted()}")
-
-            # Save images
-            ts = event.get_time_stamp()
-            saved_files = []
-            for get_img, exists, suffix in [
-                (event.get_source_image, event.source_image_exists, "overview"),
-                (event.get_target_image, event.target_image_exists, "target"),
-            ]:
-                if exists() and get_img():
-                    path = os.path.join(IMG_DIR, f"{ts}-{count_type.lower()}-{suffix}.jpg")
-                    with open(path, "wb") as f:
-                        f.write(base64.b64decode(get_img()))
-                    saved_files.append(path)
-                    print(f"  Image: {path}")
-
-            # Log to CSV with entrance/exit counts
-            with open(CSV_FILE, 'a', newline='') as f:
-                csv.writer(f).writerow([
-                    event.get_time_stamp_formatted(),
-                    event.get_ip_cam(),
-                    count_type,
-                    event.get_alarm_type(),
-                    entrance_count,
-                    exit_count,
-                    area_count,
-                    client_ip,
-                    "|".join(saved_files),
-                ])
-            print(f"  Logged to {CSV_FILE}")
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def log_message(self, format, *args):
-        pass  # Suppress default HTTP log output
-
-if __name__ == '__main__':
-    print(f"People Counting Receiver running on port {PORT}")
-    print(f"Images will be saved to {IMG_DIR}/")
-    print(f"Events will be logged to {CSV_FILE}")
-    print(f"Waiting for counting events...\n")
-    HTTPServer(('', PORT), CountingHandler).serve_forever()
-```
-
-**To run:**
-
-```bash
-pip install xmltodict
-# pip install viewtron
-python3 counting_receiver.py
-```
-
-Then configure your camera or NVR to send HTTP POST events to `http://<your-server-ip>:5002/`.
-
 ## Relevant API Endpoints
 
 | Endpoint | Purpose | Reference |
@@ -356,9 +309,17 @@ Then configure your camera or NVR to send HTTP POST events to `http://<your-serv
 | SetHttpPostConfig | Configure webhook destination | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
 | GetAlarmStatus | Poll current alarm state | [Alarm Status](/docs/api-reference/alarm/alarm-status) |
 
+## Integrations
+
+Viewtron people counting also integrates with automation platforms via published packages:
+
+| Platform | Package | What It Does |
+|----------|---------|-------------|
+| [Home Assistant](/docs/integrations/home-assistant) | [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) | People/vehicle counting as native HA sensors for occupancy tracking |
+| [Node-RED](/docs/integrations/node-red) | [node-red-contrib-viewtron](https://www.npmjs.com/package/node-red-contrib-viewtron) | Counting events direct to Node-RED flows — no middleware needed |
+
 ## Related Applications
 
-- [Home Assistant Integration](/docs/integrations/home-assistant) — people/vehicle counting as native HA sensors for occupancy tracking
 - [Human Detection & Intrusion Detection](/docs/applications/human-detection-intrusion-api) — detect people entering defined zones with images
 - [Perimeter Security & Line Crossing](/docs/applications/perimeter-security-line-crossing-api) — tripwire detection and region entry/exit
 - [Real-Time Object Tracking](/docs/applications/real-time-object-tracking-api) — continuous target position data via traject

@@ -10,6 +10,9 @@ keywords:
 sidebar_position: 3
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Face Detection & Recognition Camera API
 
 Viewtron AI security cameras include built-in face detection that runs entirely on the camera hardware — no cloud service or external AI software required. When a face is detected in the camera's field of view, the camera sends an HTTP POST webhook to your server with a cropped face image, the full scene image, and face attributes including estimated age, sex, glasses, and mask status.
@@ -32,7 +35,7 @@ The camera also supports face recognition (matching) through an on-camera face s
 2. **Enable HTTP POST webhooks** — point the camera or NVR at your server's IP and port
 3. **Upload face samples** (optional) — add face images to the on-camera library for face recognition matching
 4. **Your server receives XML** when a face is detected — the POST includes a full scene image, cropped face image, and face attributes
-5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
+5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or [Node.js SDK](/docs/getting-started/nodejs-sdk)
 6. **Take action** — save face crops, log attributes to a database, send alerts on recognition matches
 
 ## Event Data Included
@@ -65,11 +68,102 @@ When a detected face matches a sample in the on-camera library, the IPC sends a 
 | `glasses` | `yes`, `no`, `unknown` |
 | `mask` | `yes`, `no`, `unknown` |
 
-## Webhook XML Examples
+## Parsing Face Detection Events
 
-### NVR Format (v2.0) — videoFaceDetect
+<Tabs>
+  <TabItem value="python-server" label="Python SDK" default>
 
-The NVR v2.0 format uses `faceListInfo` instead of `eventInfo` + `targetListInfo`, with face attributes (age, sex, glasses, mask) directly in each item.
+The simplest way to receive face detection events. The SDK's `ViewtronServer` handles HTTP connections, keepalives, XML parsing, and version detection — you just write the callback:
+
+```bash
+pip install viewtron
+```
+
+```python
+from viewtron import ViewtronServer
+import os
+
+IMG_DIR = "images"
+os.makedirs(IMG_DIR, exist_ok=True)
+
+def on_event(event, client_ip):
+    if event.category != "face":
+        return
+    print(f"Face detected from {client_ip}")
+
+    # NVR v2.0 includes face attributes
+    age = event.get_face_age()
+    sex = event.get_face_sex()
+    glasses = event.get_face_glasses()
+    mask = event.get_face_mask()
+    if age:
+        print(f"  Age: {age}, Sex: {sex}, Glasses: {glasses}, Mask: {mask}")
+
+    # Save face crop image
+    target = event.get_target_image_bytes()
+    if target:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-face-crop.jpg", "wb") as f:
+            f.write(target)
+
+    # Save full scene image
+    overview = event.get_source_image_bytes()
+    if overview:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-face-scene.jpg", "wb") as f:
+            f.write(overview)
+
+server = ViewtronServer(port=5002, on_event=on_event)
+server.serve_forever()
+```
+
+See the [Python SDK reference](/docs/getting-started/python-sdk) for the full list of methods and event classes.
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js SDK">
+
+```bash
+npm install viewtron-sdk
+```
+
+```javascript
+const { ViewtronServer } = require('viewtron-sdk');
+const fs = require('fs');
+
+fs.mkdirSync('images', { recursive: true });
+
+const server = new ViewtronServer({ port: 5002 });
+
+server.on('event', (event, clientIP) => {
+  if (event.category !== 'face') return;
+  console.log(`Face detected from ${clientIP}`);
+
+  // NVR v2.0 includes face attributes
+  if (event.face) {
+    console.log(`  Age: ${event.face.age}, Sex: ${event.face.sex}`);
+    console.log(`  Glasses: ${event.face.glasses}, Mask: ${event.face.mask}`);
+  }
+
+  if (event.targetImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-face-crop.jpg`,
+      event.targetImageBytes
+    );
+  }
+
+  if (event.sourceImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-face-scene.jpg`,
+      event.sourceImageBytes
+    );
+  }
+});
+
+server.start();
+```
+
+  </TabItem>
+  <TabItem value="xml-nvr" label="NVR XML (v2.0)">
+
+The NVR v2.0 format uses `faceListInfo` instead of `eventInfo` + `targetListInfo`, with face attributes (age, sex, glasses, mask) directly in each item:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -113,7 +207,12 @@ The NVR v2.0 format uses `faceListInfo` instead of `eventInfo` + `targetListInfo
 </config>
 ```
 
-### IPC Format (v1.x) — VFD
+See the [NVR Event Format](/docs/api-reference/events/nvr-event-format) reference for the complete v2.0 XML structure.
+
+  </TabItem>
+  <TabItem value="xml-ipc" label="IPC XML (v1.x)">
+
+The IPC v1.x format uses `VFD` smartType with face crop images in `listInfo`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -140,145 +239,10 @@ The NVR v2.0 format uses `faceListInfo` instead of `eventInfo` + `targetListInfo
 Face attributes (age, sex, glasses, mask) are only available in the NVR v2.0 format. The IPC v1.x format includes the face crop image but not the attribute analysis. `VFD_MATCH` (face recognition) is IPC only — the NVR does not forward match data.
 :::
 
-## Quick Start Example
+See the [IPC Event Format](/docs/api-reference/events/ipc-event-format) reference for the complete v1.x XML structure.
 
-This standalone script listens for face detection events from both IPC (v1.x) and NVR (v2.0) formats. It prints face attributes, saves the scene image and face crop, and logs everything to CSV:
-
-```python
-#!/usr/bin/env python3
-"""Face Detection Event Receiver — Viewtron IP Camera API"""
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime as dt
-import xmltodict
-import base64
-import csv
-import os
-
-# pip install xmltodict
-# pip install viewtron
-from viewtron import (FaceDetection, FaceDetectionV2)
-
-PORT = 5002
-IMG_DIR = "images"
-CSV_FILE = "face_events.csv"
-os.makedirs(IMG_DIR, exist_ok=True)
-
-class FaceHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        # Respond with success XML to keep connection alive
-        response = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        response += '<config version="1.0" xmlns="http://www.ipc.com/ver10">\n'
-        response += '  <status>success</status>\n</config>'
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/xml')
-        self.send_header('Content-Length', str(len(response)))
-        self.end_headers()
-        self.wfile.write(response.encode())
-
-        # Read POST body
-        length = int(self.headers.get('Content-Length', 0))
-        if length == 0:
-            return
-        body = self.rfile.read(length).decode('utf-8', errors='replace')
-        if '<?xml' not in body:
-            return
-
-        try:
-            data = xmltodict.parse(body)
-            config = data.get('config', {})
-            version = config.get('@version', '')
-
-            age = sex = glasses = mask = ''
-
-            # Route to the correct SDK class based on API version
-            if version.startswith('2'):
-                msg_type = str(config.get('messageType', ''))
-                smart_type = str(config.get('smartType', ''))
-                if msg_type != 'alarmData' or smart_type != 'videoFaceDetect':
-                    return
-                event = FaceDetectionV2(body)
-                age = event.get_face_age()
-                sex = event.get_face_sex()
-                glasses = event.get_face_glasses()
-                mask = event.get_face_mask()
-            else:
-                st = config.get('smartType', {})
-                alarm_type = (st.get('#text') or str(st)).strip() if isinstance(st, dict) else str(st).strip()
-                if alarm_type != 'VFD':
-                    return
-                event = FaceDetection(body)
-
-            client_ip = self.client_address[0]
-
-            # Print event details
-            print(f"\n{'='*60}")
-            print(f"[{dt.now():%Y-%m-%d %H:%M:%S}] FACE DETECTED")
-            print(f"  Camera: {event.get_ip_cam()}")
-            print(f"  Source: {client_ip}")
-            if age:
-                print(f"  Age: {age}")
-                print(f"  Sex: {sex}")
-                print(f"  Glasses: {glasses}")
-                print(f"  Mask: {mask}")
-
-            # Save images
-            ts = event.get_time_stamp()
-            saved_files = []
-
-            # Scene image (source)
-            if event.has_source_image and event.source_image:
-                path = os.path.join(IMG_DIR, f"{ts}-face-scene.jpg")
-                with open(path, "wb") as f:
-                    f.write(base64.b64decode(event.source_image))
-                saved_files.append(path)
-                print(f"  Scene: {path}")
-
-            # Face crop image (target)
-            if event.has_target_image and event.target_image:
-                path = os.path.join(IMG_DIR, f"{ts}-face-crop.jpg")
-                with open(path, "wb") as f:
-                    f.write(base64.b64decode(event.target_image))
-                saved_files.append(path)
-                print(f"  Face crop: {path}")
-
-            # Log to CSV
-            with open(CSV_FILE, 'a', newline='') as f:
-                csv.writer(f).writerow([
-                    event.get_time_stamp_formatted(),
-                    event.get_ip_cam(),
-                    age,
-                    sex,
-                    glasses,
-                    mask,
-                    client_ip,
-                    "|".join(saved_files),
-                ])
-            print(f"  Logged to {CSV_FILE}")
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def log_message(self, format, *args):
-        pass  # Suppress default HTTP log output
-
-if __name__ == '__main__':
-    print(f"Face Detection Receiver running on port {PORT}")
-    print(f"Images will be saved to {IMG_DIR}/")
-    print(f"Events will be logged to {CSV_FILE}")
-    print(f"Waiting for face detection events...\n")
-    HTTPServer(('', PORT), FaceHandler).serve_forever()
-```
-
-**To run:**
-
-```bash
-pip install xmltodict
-# pip install viewtron
-python3 face_receiver.py
-```
-
-Then configure your camera or NVR to send HTTP POST events to `http://<your-server-ip>:5002/`.
+  </TabItem>
+</Tabs>
 
 ## Face Sample Library
 
@@ -311,9 +275,17 @@ Face recognition (VFD_MATCH) requires an 8-channel NVR or direct IPC connection.
 | SetHttpPostConfig | Configure webhook destination | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
 | GetAlarmStatus | Poll current alarm state (`vfdAlarm`) | [Alarm Status](/docs/api-reference/alarm/alarm-status) |
 
+## Integrations
+
+Viewtron face detection also integrates with automation platforms via published packages:
+
+| Platform | Package | What It Does |
+|----------|---------|-------------|
+| [Home Assistant](/docs/integrations/home-assistant) | [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) | Face detection events as native HA sensors for access control automations |
+| [Node-RED](/docs/integrations/node-red) | [node-red-contrib-viewtron](https://www.npmjs.com/package/node-red-contrib-viewtron) | Face detection events direct to Node-RED flows — no middleware needed |
+
 ## Related Applications
 
-- [Home Assistant Integration](/docs/integrations/home-assistant) — face detection events as native HA sensors for access control automations
 - [Human Detection & Intrusion Detection](/docs/applications/human-detection-intrusion-api) — detect people entering zones (body detection, not face)
 - [People Counting & Traffic Analytics](/docs/applications/people-counting-traffic-analytics-api) — count people crossing lines or entering areas
 - [Webhook Event Notification](/docs/applications/webhook-event-notification-api) — complete webhook setup and format reference

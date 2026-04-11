@@ -12,6 +12,9 @@ keywords:
 sidebar_position: 8
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Relay Control & IoT Automation API
 
 Viewtron IP cameras and NVRs include hardware alarm relay outputs that can be triggered via HTTP API calls. This enables IoT automation workflows where AI detection events from the camera drive physical actions in the real world — opening gates, activating lights, triggering external alarm panels, or controlling any device connected to the relay output. All processing runs on local hardware with no cloud dependency.
@@ -91,181 +94,172 @@ Triggers a virtual alarm input on the NVR, which can activate recording, push no
 curl -u admin:password "http://192.168.0.147/TriggerVirtualAlarm/17"
 ```
 
-## Quick Start Example
+## Parsing Detection Events and Triggering Relays
 
-This standalone script receives human detection webhook events and triggers the alarm relay output on the NVR when a person is detected:
+<Tabs>
+  <TabItem value="python-server" label="Python SDK" default>
+
+The simplest way to receive detection events and trigger relays. The SDK's `ViewtronServer` handles incoming webhooks while `ViewtronCamera` sends outbound relay commands:
+
+```bash
+pip install viewtron
+```
 
 ```python
-#!/usr/bin/env python3
-"""Relay Control via Human Detection — Viewtron IP Camera API
-
-Receives human detection webhooks and triggers ManualAlarmOut
-on the NVR to control a physical relay output.
-"""
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime as dt
-import xmltodict
-import requests
-import base64
-import csv
+from viewtron import ViewtronServer, ViewtronCamera
 import os
 import threading
 
-# pip install xmltodict requests
-# pip install viewtron
-from viewtron import (IntrusionDetection, RegionIntrusion)
-
-PORT = 5002
 IMG_DIR = "images"
-CSV_FILE = "relay_events.csv"
 os.makedirs(IMG_DIR, exist_ok=True)
 
-# NVR/camera credentials for relay control
-NVR_IP = "192.168.0.147"
-NVR_USER = "admin"
-NVR_PASS = "password123"
-
-# How long to keep the relay active (seconds)
+# NVR credentials for relay control
+nvr = ViewtronCamera("192.168.0.147", "admin", "password")
 RELAY_DURATION = 15
 
+def on_event(event, client_ip):
+    if event.category != "intrusion":
+        return
+    print(f"Person detected from {client_ip} — triggering relay")
+    print(f"  Type: {event.get_alarm_description()}")
 
-def set_relay(activate=True):
-    """Send ManualAlarmOut to the NVR to trigger or release the relay."""
-    status = "true" if activate else "false"
-    xml_body = (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<config version="1.0" xmlns="http://www.ipc.com/ver10">\n'
-        f'  <action><status>{status}</status></action>\n'
-        '</config>'
-    )
-    try:
-        url = f"http://{NVR_IP}/ManualAlarmOut"
-        r = requests.post(url, data=xml_body,
-                          auth=(NVR_USER, NVR_PASS),
-                          headers={'Content-Type': 'application/xml'},
-                          timeout=5)
-        state = "ON" if activate else "OFF"
-        print(f"  Relay {state} on {NVR_IP} (HTTP {r.status_code})")
-    except Exception as e:
-        print(f"  Relay control failed: {e}")
+    overview = event.get_source_image_bytes()
+    if overview:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-relay-overview.jpg", "wb") as f:
+            f.write(overview)
 
+    # Trigger relay on NVR
+    nvr.set_alarm_out(True)
+    threading.Timer(RELAY_DURATION, lambda: nvr.set_alarm_out(False)).start()
 
-def relay_with_timeout(duration):
-    """Activate relay, wait, then deactivate."""
-    set_relay(activate=True)
-
-    def deactivate():
-        set_relay(activate=False)
-
-    threading.Timer(duration, deactivate).start()
-
-
-class RelayHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        # Respond with success XML
-        response = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        response += '<config version="1.0" xmlns="http://www.ipc.com/ver10">\n'
-        response += '  <status>success</status>\n</config>'
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/xml')
-        self.send_header('Content-Length', str(len(response)))
-        self.end_headers()
-        self.wfile.write(response.encode())
-
-        # Read POST body
-        length = int(self.headers.get('Content-Length', 0))
-        if length == 0:
-            return
-        body = self.rfile.read(length).decode('utf-8', errors='replace')
-        if '<?xml' not in body:
-            return
-
-        try:
-            data = xmltodict.parse(body)
-            config = data.get('config', {})
-            version = config.get('@version', '')
-
-            # Route to the correct SDK class based on API version
-            if version.startswith('2'):
-                msg_type = str(config.get('messageType', ''))
-                smart_type = str(config.get('smartType', ''))
-                if msg_type != 'alarmData' or smart_type != 'regionIntrusion':
-                    return
-                event = RegionIntrusion(body)
-            else:
-                st = config.get('smartType', {})
-                alarm_type = (st.get('#text') or str(st)).strip() if isinstance(st, dict) else str(st).strip()
-                if alarm_type != 'PEA':
-                    return
-                event = IntrusionDetection(body)
-
-            client_ip = self.client_address[0]
-
-            # Print event details
-            print(f"\n{'='*60}")
-            print(f"[{dt.now():%Y-%m-%d %H:%M:%S}] PERSON DETECTED — TRIGGERING RELAY")
-            print(f"  Camera: {event.get_ip_cam()}")
-            print(f"  Source: {client_ip}")
-            print(f"  Type: {event.get_alarm_description()}")
-            print(f"  Time: {event.get_time_stamp_formatted()}")
-
-            # Save images
-            ts = event.get_time_stamp()
-            saved_files = []
-            for get_img, exists, suffix in [
-                (event.get_source_image, event.source_image_exists, "overview"),
-                (event.get_target_image, event.target_image_exists, "target"),
-            ]:
-                if exists() and get_img():
-                    path = os.path.join(IMG_DIR, f"{ts}-relay-{suffix}.jpg")
-                    with open(path, "wb") as f:
-                        f.write(base64.b64decode(get_img()))
-                    saved_files.append(path)
-                    print(f"  Image: {path}")
-
-            # Trigger relay
-            relay_with_timeout(RELAY_DURATION)
-
-            # Log to CSV
-            with open(CSV_FILE, 'a', newline='') as f:
-                csv.writer(f).writerow([
-                    event.get_time_stamp_formatted(),
-                    event.get_ip_cam(),
-                    event.get_alarm_type(),
-                    event.get_alarm_description(),
-                    client_ip,
-                    NVR_IP,
-                    "RELAY_TRIGGERED",
-                    "|".join(saved_files),
-                ])
-            print(f"  Logged to {CSV_FILE}")
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def log_message(self, format, *args):
-        pass  # Suppress default HTTP log output
-
-if __name__ == '__main__':
-    print(f"Relay Controller running on port {PORT}")
-    print(f"NVR relay target: {NVR_IP}")
-    print(f"Images will be saved to {IMG_DIR}/")
-    print(f"Events will be logged to {CSV_FILE}")
-    print(f"Relay duration: {RELAY_DURATION} seconds")
-    print(f"Waiting for detection events...\n")
-    HTTPServer(('', PORT), RelayHandler).serve_forever()
+server = ViewtronServer(port=5002, on_event=on_event)
+server.serve_forever()
 ```
 
-**To run:**
+See the [Python SDK reference](/docs/getting-started/python-sdk) for the full list of methods and event classes.
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js SDK">
 
 ```bash
-pip install xmltodict requests
-# pip install viewtron
-python3 relay_controller.py
+npm install viewtron-sdk
 ```
 
-Then configure your camera or NVR to send HTTP POST events to `http://<your-server-ip>:5002/`.
+```javascript
+const { ViewtronServer, ViewtronCamera } = require('viewtron-sdk');
+const fs = require('fs');
+
+fs.mkdirSync('images', { recursive: true });
+
+const nvr = new ViewtronCamera('192.168.0.147', 'admin', 'password');
+const RELAY_DURATION = 15000; // ms
+
+const server = new ViewtronServer({ port: 5002 });
+
+server.on('event', (event, clientIP) => {
+  if (event.category !== 'intrusion') return;
+  console.log(`Person detected from ${clientIP} — triggering relay`);
+  console.log(`  Type: ${event.eventType} (${event.targetType})`);
+
+  if (event.sourceImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-relay-overview.jpg`,
+      event.sourceImageBytes
+    );
+  }
+
+  // Trigger relay on NVR
+  nvr.setAlarmOut(true);
+  setTimeout(() => nvr.setAlarmOut(false), RELAY_DURATION);
+});
+
+server.start();
+```
+
+  </TabItem>
+  <TabItem value="xml-nvr" label="NVR XML (v2.0)">
+
+The NVR v2.0 `regionIntrusion` format provides the detection data that triggers relay actions:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+    <messageType>alarmData</messageType>
+    <deviceInfo>
+        <deviceName><![CDATA[Front Door]]></deviceName>
+        <ip><![CDATA[192.168.0.55]]></ip>
+        <mac><![CDATA[58:5B:69:40:F4:0D]]></mac>
+        <channelId>1</channelId>
+    </deviceInfo>
+    <smartType>regionIntrusion</smartType>
+    <currentTime>1772056914604000</currentTime>
+    <eventInfo>
+        <item>
+            <eventId>916</eventId>
+            <targetId>716</targetId>
+            <boundary>area</boundary>
+            <pointGroup>
+                <item><x>1590</x><y>3080</y></item>
+                <item><x>4715</x><y>3181</y></item>
+                <item><x>4772</x><y>9217</y></item>
+                <item><x>416</x><y>9141</y></item>
+            </pointGroup>
+            <rect><x1>3096</x1><y1>3715</y1><x2>4005</x2><y2>9861</y2></rect>
+        </item>
+    </eventInfo>
+    <sourceDataInfo>
+        <sourceBase64Length>400924</sourceBase64Length>
+        <sourceBase64Data>... (base64 JPEG) ...</sourceBase64Data>
+    </sourceDataInfo>
+    <targetListInfo>
+        <item>
+            <targetId>716</targetId>
+            <targetType>person</targetType>
+            <targetImageData>
+                <targetBase64Length>78796</targetBase64Length>
+                <targetBase64Data>... (base64 JPEG) ...</targetBase64Data>
+            </targetImageData>
+        </item>
+    </targetListInfo>
+</config>
+```
+
+After parsing this event, your application sends a `ManualAlarmOut` or `TriggerVirtualAlarm` request to the NVR.
+
+  </TabItem>
+  <TabItem value="xml-ipc" label="IPC XML (v1.x)">
+
+The IPC v1.x format uses `PEA` smartType:
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<config version="1.7" xmlns="http://www.ipc.com/ver10">
+  <smartType type="openAlramObj">PEA</smartType>
+  <deviceName type="string"><![CDATA[FrontDoor]]></deviceName>
+  <currentTime type="tint64">1774792701902505</currentTime>
+  <perimeter>
+    <perInfo type="list" count="1">
+      <item>
+        <eventId type="uint32">2357</eventId>
+        <targetId type="uint32">2157</targetId>
+        <status type="perStatus">SMART_START</status>
+        <boundary type="list" count="4">
+          <item><point><x type="uint32">450</x><y type="uint32">466</y></point></item>
+          <!-- additional polygon points -->
+        </boundary>
+        <rect>
+          <x1 type="uint32">4403</x1><y1 type="uint32">694</y1>
+          <x2 type="uint32">5909</x2><y2 type="uint32">8125</y2>
+        </rect>
+      </item>
+    </perInfo>
+  </perimeter>
+  <!-- sourceDataInfo and listInfo with base64 images -->
+</config>
+```
+
+  </TabItem>
+</Tabs>
 
 ## ESP8266 Relay Controller Project
 
@@ -282,6 +276,15 @@ This approach solves the limitation of `perimeterAlarm` — which drops to false
 | TriggerVirtualAlarm | Trigger virtual alarm on NVR (v2.0) | [Virtual Alarm](/docs/api-reference/alarm/trigger-virtual-alarm) |
 | GetAlarmStatus | Poll current alarm state | [Alarm Status](/docs/api-reference/alarm/alarm-status) |
 | SetHttpPostConfig | Configure webhook destination for detection events | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
+
+## Integrations
+
+Viewtron relay control also integrates with automation platforms via published packages:
+
+| Platform | Package | What It Does |
+|----------|---------|-------------|
+| [Home Assistant](/docs/integrations/home-assistant) | [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) | Detection events as native HA sensors — trigger relays via HA automations |
+| [Node-RED](/docs/integrations/node-red) | [node-red-contrib-viewtron](https://www.npmjs.com/package/node-red-contrib-viewtron) | Detection events direct to Node-RED flows — build relay logic visually |
 
 ## Related Applications
 

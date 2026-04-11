@@ -12,6 +12,9 @@ keywords:
 sidebar_position: 6
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Perimeter Security & Line Crossing Detection API
 
 Viewtron AI security cameras support tripwire line crossing detection and region entry/exit detection that runs entirely on the camera hardware — no cloud service or external AI software required. When a person, vehicle, or motorcycle crosses a defined line or enters/exits a defined region, the camera sends an HTTP POST webhook to your server with the detection event data, including a full-frame overview image, a cropped image of the detected target, bounding box coordinates, and the line or region boundary.
@@ -35,7 +38,7 @@ The key difference from [intrusion detection](/docs/applications/human-detection
 2. **Or configure a region entry/exit zone** — define a polygon region for AOI (Area of Interest) entry or exit detection
 3. **Enable HTTP POST webhooks** — point the camera or NVR at your server's IP and port
 4. **Your server receives XML** when a detection occurs — the POST includes alarm type, line coordinates, target bounding box, and base64 images
-5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
+5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or [Node.js SDK](/docs/getting-started/nodejs-sdk)
 6. **Take action** — save images, log to CSV, send alerts, trigger relays
 
 ## Event Data Included
@@ -69,9 +72,88 @@ The IPC tripwire configuration supports directional filtering:
 The NVR v2.0 `lineCrossing` event does not include crossing direction in the webhook POST data. The direction line coordinates are included, but not which direction the object crossed.
 :::
 
-## Webhook XML Examples
+## Parsing Line Crossing Events
 
-### NVR Format (v2.0) — lineCrossing
+<Tabs>
+  <TabItem value="python-server" label="Python SDK" default>
+
+The simplest way to receive line crossing events. The SDK's `ViewtronServer` handles HTTP connections, keepalives, XML parsing, and version detection — you just write the callback:
+
+```bash
+pip install viewtron
+```
+
+```python
+from viewtron import ViewtronServer
+import os
+
+IMG_DIR = "images"
+os.makedirs(IMG_DIR, exist_ok=True)
+
+def on_event(event, client_ip):
+    if event.category != "intrusion":
+        return
+    print(f"Line crossing detected from {client_ip}")
+    print(f"  Type: {event.get_alarm_type()} ({event.get_alarm_description()})")
+
+    overview = event.get_source_image_bytes()
+    if overview:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-line-crossing-overview.jpg", "wb") as f:
+            f.write(overview)
+
+    target = event.get_target_image_bytes()
+    if target:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-line-crossing-target.jpg", "wb") as f:
+            f.write(target)
+
+server = ViewtronServer(port=5002, on_event=on_event)
+server.serve_forever()
+```
+
+See the [Python SDK reference](/docs/getting-started/python-sdk) for the full list of methods and event classes.
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js SDK">
+
+```bash
+npm install viewtron-sdk
+```
+
+```javascript
+const { ViewtronServer } = require('viewtron-sdk');
+const fs = require('fs');
+
+fs.mkdirSync('images', { recursive: true });
+
+const server = new ViewtronServer({ port: 5002 });
+
+server.on('event', (event, clientIP) => {
+  if (event.category !== 'intrusion') return;
+  console.log(`Line crossing detected from ${clientIP}`);
+  console.log(`  Type: ${event.eventType} (${event.targetType})`);
+
+  if (event.sourceImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-line-crossing-overview.jpg`,
+      event.sourceImageBytes
+    );
+  }
+
+  if (event.targetImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-line-crossing-target.jpg`,
+      event.targetImageBytes
+    );
+  }
+});
+
+server.start();
+```
+
+  </TabItem>
+  <TabItem value="xml-nvr" label="NVR XML (v2.0)">
+
+The NVR v2.0 format uses `lineCrossing` with a `directionLine` defining the tripwire start and end points:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -114,7 +196,10 @@ The NVR v2.0 `lineCrossing` event does not include crossing direction in the web
 </config>
 ```
 
-### IPC Format (v1.x) — PEA (line cross)
+See the [NVR Event Format](/docs/api-reference/events/nvr-event-format) reference for the complete v2.0 XML structure.
+
+  </TabItem>
+  <TabItem value="xml-ipc" label="IPC XML (v1.x)">
 
 IPC uses the same `PEA` smartType for both intrusion and line crossing. Line crossing events contain a `<tripwire>` block instead of `<perimeter>`:
 
@@ -149,148 +234,10 @@ IPC uses the same `PEA` smartType for both intrusion and line crossing. Line cro
 </config>
 ```
 
-## Quick Start Example
+See the [IPC Event Format](/docs/api-reference/events/ipc-event-format) reference for the complete v1.x XML structure.
 
-This standalone script listens for line crossing and region entry/exit events, prints details to the console, saves images, and logs to CSV:
-
-```python
-#!/usr/bin/env python3
-"""Line Crossing & Region Entry/Exit Event Receiver — Viewtron IP Camera API"""
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime as dt
-import xmltodict
-import base64
-import csv
-import os
-
-# pip install xmltodict
-# pip install viewtron
-from viewtron import (IntrusionDetection, IntrusionEntry, IntrusionExit, LineCrossing)
-
-PORT = 5002
-IMG_DIR = "images"
-CSV_FILE = "line_crossing_events.csv"
-os.makedirs(IMG_DIR, exist_ok=True)
-
-# IPC smartTypes handled by this script
-IPC_TYPES = {
-    'PEA': 'line_crossing',
-    'AOIENTRY': 'region_entry',
-    'AOILEAVE': 'region_exit',
-}
-
-class LineCrossingHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        # Respond with success XML to keep connection alive
-        response = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        response += '<config version="1.0" xmlns="http://www.ipc.com/ver10">\n'
-        response += '  <status>success</status>\n</config>'
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/xml')
-        self.send_header('Content-Length', str(len(response)))
-        self.end_headers()
-        self.wfile.write(response.encode())
-
-        # Read POST body
-        length = int(self.headers.get('Content-Length', 0))
-        if length == 0:
-            return
-        body = self.rfile.read(length).decode('utf-8', errors='replace')
-        if '<?xml' not in body:
-            return
-
-        try:
-            data = xmltodict.parse(body)
-            config = data.get('config', {})
-            version = config.get('@version', '')
-
-            # Route to the correct SDK class based on API version
-            if version.startswith('2'):
-                msg_type = str(config.get('messageType', ''))
-                smart_type = str(config.get('smartType', ''))
-                if msg_type != 'alarmData' or smart_type != 'lineCrossing':
-                    return
-                event = LineCrossing(body)
-                event_label = "LINE CROSSING"
-            else:
-                st = config.get('smartType', {})
-                alarm_type = (st.get('#text') or str(st)).strip() if isinstance(st, dict) else str(st).strip()
-                if alarm_type == 'PEA':
-                    # Check for tripwire block (line crossing) vs perimeter (intrusion)
-                    if 'tripwire' not in body:
-                        return  # This is an intrusion event, not line crossing
-                    event = IntrusionDetection(body)
-                    event_label = "LINE CROSSING"
-                elif alarm_type == 'AOIENTRY':
-                    event = IntrusionEntry(body)
-                    event_label = "REGION ENTRY"
-                elif alarm_type == 'AOILEAVE':
-                    event = IntrusionExit(body)
-                    event_label = "REGION EXIT"
-                else:
-                    return
-
-            client_ip = self.client_address[0]
-
-            # Print event details
-            print(f"\n{'='*60}")
-            print(f"[{dt.now():%Y-%m-%d %H:%M:%S}] {event_label} DETECTED")
-            print(f"  Camera: {event.get_ip_cam()}")
-            print(f"  Source: {client_ip}")
-            print(f"  Type: {event.get_alarm_description()}")
-            print(f"  Time: {event.get_time_stamp_formatted()}")
-
-            # Save images
-            ts = event.get_time_stamp()
-            saved_files = []
-            suffix_base = event_label.lower().replace(' ', '-')
-            for get_img, exists, suffix in [
-                (event.get_source_image, event.source_image_exists, "overview"),
-                (event.get_target_image, event.target_image_exists, "target"),
-            ]:
-                if exists() and get_img():
-                    path = os.path.join(IMG_DIR, f"{ts}-{suffix_base}-{suffix}.jpg")
-                    with open(path, "wb") as f:
-                        f.write(base64.b64decode(get_img()))
-                    saved_files.append(path)
-                    print(f"  Image: {path}")
-
-            # Log to CSV
-            with open(CSV_FILE, 'a', newline='') as f:
-                csv.writer(f).writerow([
-                    event.get_time_stamp_formatted(),
-                    event.get_ip_cam(),
-                    event.get_alarm_type(),
-                    event_label,
-                    client_ip,
-                    "|".join(saved_files),
-                ])
-            print(f"  Logged to {CSV_FILE}")
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def log_message(self, format, *args):
-        pass  # Suppress default HTTP log output
-
-if __name__ == '__main__':
-    print(f"Line Crossing & Region Entry/Exit Receiver running on port {PORT}")
-    print(f"Images will be saved to {IMG_DIR}/")
-    print(f"Events will be logged to {CSV_FILE}")
-    print(f"Waiting for events...\n")
-    HTTPServer(('', PORT), LineCrossingHandler).serve_forever()
-```
-
-**To run:**
-
-```bash
-pip install xmltodict
-# pip install viewtron
-python3 line_crossing_receiver.py
-```
-
-Then configure your camera or NVR to send HTTP POST events to `http://<your-server-ip>:5002/`.
+  </TabItem>
+</Tabs>
 
 ## Relevant API Endpoints
 
@@ -301,6 +248,15 @@ Then configure your camera or NVR to send HTTP POST events to `http://<your-serv
 | GetSmartAoiLeaveConfig | Read region exit detection configuration | [Region Entry/Exit Config](/docs/api-reference/smart-detection/region-entry-exit-config) |
 | SetHttpPostConfig | Configure webhook destination | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
 | GetAlarmStatus | Poll current alarm state (tripwireAlarm, aoiEntryAlarm, aoiLeaveAlarm) | [Alarm Status](/docs/api-reference/alarm/alarm-status) |
+
+## Integrations
+
+Viewtron line crossing detection also integrates with automation platforms via published packages:
+
+| Platform | Package | What It Does |
+|----------|---------|-------------|
+| [Home Assistant](/docs/integrations/home-assistant) | [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) | Line crossing events as native HA sensors — automate gates, lights, notifications |
+| [Node-RED](/docs/integrations/node-red) | [node-red-contrib-viewtron](https://www.npmjs.com/package/node-red-contrib-viewtron) | Line crossing events direct to Node-RED flows — no middleware needed |
 
 ## Related Applications
 

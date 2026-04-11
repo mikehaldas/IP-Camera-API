@@ -12,6 +12,9 @@ keywords:
 sidebar_position: 11
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Loitering Detection Camera API
 
 Viewtron AI security cameras include built-in loitering detection that runs entirely on the camera hardware — no cloud service or external AI software required. When a person or vehicle remains in a defined zone beyond a configurable time threshold, the camera sends an HTTP POST webhook to your server with the detection event data, including a full-frame overview image and a cropped image of the loitering target.
@@ -33,7 +36,7 @@ Loitering detection differs from [intrusion detection](/docs/applications/human-
 2. **Enable object filters** — select which target types to monitor (person, vehicle, or both)
 3. **Enable HTTP POST webhooks** — point the camera at your server's IP and port
 4. **Your server receives XML** when loitering is detected — the POST includes alarm type, zone boundary, target bounding box, and base64 images
-5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
+5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or [Node.js SDK](/docs/getting-started/nodejs-sdk)
 6. **Take action** — save images, log to CSV, send alerts, trigger deterrent actions
 
 ## Event Data Included
@@ -51,9 +54,93 @@ Each loitering detection webhook POST contains:
 | `targetBase64Data` | Cropped target JPEG image (base64 encoded) |
 | `currentTime` | Detection timestamp |
 
-## Webhook XML Example
+## Parsing Loitering Events
 
-### IPC Format (v1.x) — LOITER
+<Tabs>
+  <TabItem value="python-server" label="Python SDK" default>
+
+The simplest way to receive loitering events. The SDK's `ViewtronServer` handles HTTP connections, keepalives, XML parsing, and version detection — you just write the callback:
+
+```bash
+pip install viewtron
+```
+
+```python
+from viewtron import ViewtronServer
+import os
+
+IMG_DIR = "images"
+os.makedirs(IMG_DIR, exist_ok=True)
+
+def on_event(event, client_ip):
+    if event.category != "intrusion":
+        return
+    # Loitering events use the intrusion category with LOITER alarm type
+    if event.get_alarm_type() not in ("LOITER", "loitering"):
+        return
+    print(f"Loitering detected from {client_ip}")
+    print(f"  Type: {event.get_alarm_description()}")
+    print(f"  Time: {event.get_time_stamp_formatted()}")
+
+    overview = event.get_source_image_bytes()
+    if overview:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-loitering-overview.jpg", "wb") as f:
+            f.write(overview)
+
+    target = event.get_target_image_bytes()
+    if target:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-loitering-target.jpg", "wb") as f:
+            f.write(target)
+
+server = ViewtronServer(port=5002, on_event=on_event)
+server.serve_forever()
+```
+
+See the [Python SDK reference](/docs/getting-started/python-sdk) for the full list of methods and event classes.
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js SDK">
+
+```bash
+npm install viewtron-sdk
+```
+
+```javascript
+const { ViewtronServer } = require('viewtron-sdk');
+const fs = require('fs');
+
+fs.mkdirSync('images', { recursive: true });
+
+const server = new ViewtronServer({ port: 5002 });
+
+server.on('event', (event, clientIP) => {
+  if (event.category !== 'intrusion') return;
+  if (event.eventType !== 'LOITER' && event.eventType !== 'loitering') return;
+  console.log(`Loitering detected from ${clientIP}`);
+  console.log(`  Status: ${event.status}`);
+
+  if (event.sourceImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-loitering-overview.jpg`,
+      event.sourceImageBytes
+    );
+  }
+
+  if (event.targetImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-loitering-target.jpg`,
+      event.targetImageBytes
+    );
+  }
+});
+
+server.start();
+```
+
+  </TabItem>
+  <TabItem value="xml-ipc" label="IPC XML (v1.x)">
+
+Loitering detection uses the `LOITER` smartType with a `<perimeter>` block containing the loitering zone boundary:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -95,126 +182,10 @@ Each loitering detection webhook POST contains:
 </config>
 ```
 
-## Quick Start Example
+See the [IPC Event Format](/docs/api-reference/events/ipc-event-format) reference for the complete v1.x XML structure.
 
-This standalone script listens for loitering detection events, prints details to the console, saves images, and logs to CSV:
-
-```python
-#!/usr/bin/env python3
-"""Loitering Detection Event Receiver — Viewtron IP Camera API"""
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime as dt
-import xmltodict
-import base64
-import csv
-import os
-
-# pip install xmltodict
-# pip install viewtron
-from viewtron import LoiteringDetection
-
-PORT = 5002
-IMG_DIR = "images"
-CSV_FILE = "loitering_events.csv"
-os.makedirs(IMG_DIR, exist_ok=True)
-
-
-class LoiteringHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        # Respond with success XML to keep connection alive
-        response = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        response += '<config version="1.0" xmlns="http://www.ipc.com/ver10">\n'
-        response += '  <status>success</status>\n</config>'
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/xml')
-        self.send_header('Content-Length', str(len(response)))
-        self.end_headers()
-        self.wfile.write(response.encode())
-
-        # Read POST body
-        length = int(self.headers.get('Content-Length', 0))
-        if length == 0:
-            return
-        body = self.rfile.read(length).decode('utf-8', errors='replace')
-        if '<?xml' not in body:
-            return
-
-        try:
-            data = xmltodict.parse(body)
-            config = data.get('config', {})
-            version = config.get('@version', '')
-
-            # Loitering is currently IPC-only (v1.x format)
-            if version.startswith('2'):
-                # NVR v2.0 loitering forwarding has not been tested
-                return
-
-            st = config.get('smartType', {})
-            alarm_type = (st.get('#text') or str(st)).strip() if isinstance(st, dict) else str(st).strip()
-            if alarm_type != 'LOITER':
-                return
-
-            event = LoiteringDetection(body)
-            client_ip = self.client_address[0]
-
-            # Print event details
-            print(f"\n{'='*60}")
-            print(f"[{dt.now():%Y-%m-%d %H:%M:%S}] LOITERING DETECTED")
-            print(f"  Camera: {event.get_ip_cam()}")
-            print(f"  Source: {client_ip}")
-            print(f"  Type: {event.get_alarm_description()}")
-            print(f"  Time: {event.get_time_stamp_formatted()}")
-
-            # Save images
-            ts = event.get_time_stamp()
-            saved_files = []
-            for get_img, exists, suffix in [
-                (event.get_source_image, event.source_image_exists, "overview"),
-                (event.get_target_image, event.target_image_exists, "target"),
-            ]:
-                if exists() and get_img():
-                    path = os.path.join(IMG_DIR, f"{ts}-loitering-{suffix}.jpg")
-                    with open(path, "wb") as f:
-                        f.write(base64.b64decode(get_img()))
-                    saved_files.append(path)
-                    print(f"  Image: {path}")
-
-            # Log to CSV
-            with open(CSV_FILE, 'a', newline='') as f:
-                csv.writer(f).writerow([
-                    event.get_time_stamp_formatted(),
-                    event.get_ip_cam(),
-                    event.get_alarm_type(),
-                    event.get_alarm_description(),
-                    client_ip,
-                    "|".join(saved_files),
-                ])
-            print(f"  Logged to {CSV_FILE}")
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def log_message(self, format, *args):
-        pass  # Suppress default HTTP log output
-
-if __name__ == '__main__':
-    print(f"Loitering Detection Receiver running on port {PORT}")
-    print(f"Images will be saved to {IMG_DIR}/")
-    print(f"Events will be logged to {CSV_FILE}")
-    print(f"Waiting for loitering events...\n")
-    HTTPServer(('', PORT), LoiteringHandler).serve_forever()
-```
-
-**To run:**
-
-```bash
-pip install xmltodict
-# pip install viewtron
-python3 loitering_receiver.py
-```
-
-Then configure your camera to send HTTP POST events to `http://<your-server-ip>:5002/`. Enable the LOITER detection type in the camera's httpPost subscription settings.
+  </TabItem>
+</Tabs>
 
 ## Relevant API Endpoints
 
@@ -223,6 +194,15 @@ Then configure your camera to send HTTP POST events to `http://<your-server-ip>:
 | GetSmartLoiteringConfig | Read loitering detection zone and time threshold configuration | [Loitering Detection Config](/docs/api-reference/smart-detection/loitering-detection-config) |
 | SetHttpPostConfig | Configure webhook destination | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
 | GetAlarmStatus | Poll current alarm state | [Alarm Status](/docs/api-reference/alarm/alarm-status) |
+
+## Integrations
+
+Viewtron loitering detection also integrates with automation platforms via published packages:
+
+| Platform | Package | What It Does |
+|----------|---------|-------------|
+| [Home Assistant](/docs/integrations/home-assistant) | [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) | Loitering events as native HA sensors — automate deterrents, alerts, notifications |
+| [Node-RED](/docs/integrations/node-red) | [node-red-contrib-viewtron](https://www.npmjs.com/package/node-red-contrib-viewtron) | Loitering events direct to Node-RED flows — no middleware needed |
 
 ## Related Applications
 

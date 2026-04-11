@@ -11,6 +11,9 @@ keywords:
 sidebar_position: 13
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Webhook Event Notification API
 
 Viewtron IP cameras and NVRs can push real-time AI detection events to your HTTP server as webhooks. When a camera detects a person, vehicle, face, or license plate, it sends an HTTP POST to your server with XML data containing the event details, bounding box coordinates, and optionally base64-encoded JPEG images of the scene and detected target.
@@ -39,7 +42,7 @@ No polling required — your server receives events the moment they happen. No c
 1. **Configure the webhook destination** on the camera or NVR — your server's IP, port, and URL path
 2. **Enable detection types** you want to receive (perimeter, face, LPR, etc.)
 3. **Start your HTTP server** listening for POST requests
-4. **Parse the XML** when events arrive — extract alarm type, target info, and images
+4. **Parse the XML** when events arrive — use the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or [Node.js SDK](/docs/getting-started/nodejs-sdk) to handle parsing automatically
 5. **Respond with success XML** to keep the connection alive
 
 ## Supported Detection Types
@@ -127,119 +130,135 @@ Your server must respond with this XML to keep the connection alive:
 </config>
 ```
 
-## Quick Start Example
+## Receiving All Event Types
 
-This standalone script receives webhook events from any Viewtron camera or NVR, prints event details, saves images, and logs to CSV:
+<Tabs>
+  <TabItem value="python-server" label="Python SDK" default>
+
+The simplest way to receive all webhook event types. The SDK's `ViewtronServer` handles HTTP connections, keepalives, XML parsing, version detection, and routing — you just write the callback:
+
+```bash
+pip install viewtron
+```
 
 ```python
-#!/usr/bin/env python3
-"""Viewtron Webhook Event Receiver — receives all detection types."""
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime as dt
-import xmltodict
-import base64
-import csv
+from viewtron import ViewtronServer
 import os
 
-# pip install xmltodict
-# pip install viewtron
-from viewtron import *
-
-PORT = 5002
 IMG_DIR = "images"
-CSV_FILE = "events.csv"
 os.makedirs(IMG_DIR, exist_ok=True)
 
-# Route alarm types to the correct SDK class
-IPC_CLASSES = {
-    'PEA': IntrusionDetection, 'VFD': FaceDetection,
-    'VEHICE': LPR, 'VEHICLE': LPR, 'VSD': VideoMetadata,
-    'AOIENTRY': IntrusionEntry, 'AOILEAVE': IntrusionExit,
-}
-NVR_CLASSES = {
-    'regionIntrusion': RegionIntrusion, 'lineCrossing': LineCrossing,
-    'vehicle': VehicleLPR, 'videoFaceDetect': FaceDetectionV2,
-    'videoMetadata': VideoMetadataV2,
-    'targetCountingByLine': TargetCountingByLine,
-    'targetCountingByArea': TargetCountingByArea,
-}
+def on_event(event, client_ip):
+    print(f"[{event.category}] {event.get_alarm_description()} from {client_ip}")
+    print(f"  Camera: {event.get_ip_cam()}")
+    print(f"  Type: {event.get_alarm_type()}")
 
-class WebhookHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        # Respond immediately to keep the connection alive
-        response = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        response += '<config version="1.0" xmlns="http://www.ipc.com/ver10">\n'
-        response += '  <status>success</status>\n</config>'
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/xml')
-        self.send_header('Content-Length', str(len(response)))
-        self.end_headers()
-        self.wfile.write(response.encode())
+    # LPR-specific fields
+    if event.category == "lpr":
+        print(f"  Plate: {event.get_plate_number()}")
+        print(f"  Group: {event.get_plate_group()}")
 
-        # Read and parse the POST body
-        length = int(self.headers.get('Content-Length', 0))
-        if length == 0:
-            return
-        body = self.rfile.read(length).decode('utf-8', errors='replace')
-        if '<?xml' not in body:
-            return
+    # Face-specific fields (NVR v2.0)
+    if event.category == "face":
+        age = event.get_face_age()
+        if age:
+            print(f"  Age: {age}, Sex: {event.get_face_sex()}")
 
-        try:
-            data = xmltodict.parse(body)
-            config = data.get('config', {})
-            version = config.get('@version', '')
+    # Save images
+    overview = event.get_source_image_bytes()
+    if overview:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-overview.jpg", "wb") as f:
+            f.write(overview)
 
-            # Detect v2.0 (NVR) vs v1.x (IPC)
-            if version.startswith('2'):
-                msg_type = str(config.get('messageType', ''))
-                if msg_type != 'alarmData':
-                    return
-                smart_type = str(config.get('smartType', ''))
-                if smart_type not in NVR_CLASSES:
-                    return
-                event = NVR_CLASSES[smart_type](body)
-            else:
-                st = config.get('smartType', {})
-                alarm_type = (st.get('#text') or st.get('value') or
-                              str(st)).strip() if isinstance(st, dict) else str(st).strip()
-                if alarm_type not in IPC_CLASSES:
-                    return
-                event = IPC_CLASSES[alarm_type](body)
+    target = event.get_target_image_bytes()
+    if target:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-target.jpg", "wb") as f:
+            f.write(target)
 
-            # Print event info
-            client_ip = self.client_address[0]
-            print(f"\n[{dt.now():%H:%M:%S}] {event.get_alarm_description()} from {client_ip}")
-            print(f"  Camera: {event.get_ip_cam()}")
-            print(f"  Type: {event.get_alarm_type()}")
-
-            # Save images if present
-            ts = event.get_time_stamp()
-            for get_img, exists, suffix in [
-                (event.get_source_image, event.source_image_exists, "overview"),
-                (event.get_target_image, event.target_image_exists, "target"),
-            ]:
-                if exists() and get_img():
-                    path = os.path.join(IMG_DIR, f"{ts}-{suffix}.jpg")
-                    with open(path, "wb") as f:
-                        f.write(base64.b64decode(get_img()))
-                    print(f"  Saved: {path}")
-
-            # Log to CSV
-            with open(CSV_FILE, 'a', newline='') as f:
-                csv.writer(f).writerow([
-                    event.get_time_stamp_formatted(), event.get_ip_cam(),
-                    event.get_alarm_type(), event.get_alarm_description(),
-                    event.get_plate_number(), client_ip,
-                ])
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-if __name__ == '__main__':
-    print(f"Listening for webhooks on port {PORT}...")
-    HTTPServer(('', PORT), WebhookHandler).serve_forever()
+server = ViewtronServer(port=5002, on_event=on_event)
+server.serve_forever()
 ```
+
+See the [Python SDK reference](/docs/getting-started/python-sdk) for the full list of methods and event classes.
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js SDK">
+
+```bash
+npm install viewtron-sdk
+```
+
+```javascript
+const { ViewtronServer } = require('viewtron-sdk');
+const fs = require('fs');
+
+fs.mkdirSync('images', { recursive: true });
+
+const server = new ViewtronServer({ port: 5002 });
+
+server.on('event', (event, clientIP) => {
+  console.log(`[${event.category}] ${event.eventType} from ${clientIP}`);
+
+  // LPR-specific fields
+  if (event.category === 'lpr') {
+    console.log(`  Plate: ${event.plateNumber}`);
+    console.log(`  Group: ${event.plateGroup}`);
+  }
+
+  // Face-specific fields (NVR v2.0)
+  if (event.category === 'face' && event.face) {
+    console.log(`  Age: ${event.face.age}, Sex: ${event.face.sex}`);
+  }
+
+  // Save images
+  if (event.sourceImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-overview.jpg`,
+      event.sourceImageBytes
+    );
+  }
+
+  if (event.targetImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-target.jpg`,
+      event.targetImageBytes
+    );
+  }
+});
+
+server.start();
+```
+
+  </TabItem>
+  <TabItem value="xml-nvr" label="NVR XML (v2.0)">
+
+NVR v2.0 events use `<messageType>alarmData</messageType>` with `<smartType>` to identify the detection type. Each event type has its own XML structure — see the individual application pages for type-specific examples:
+
+- [Human Detection (regionIntrusion)](/docs/applications/human-detection-intrusion-api)
+- [Line Crossing (lineCrossing)](/docs/applications/perimeter-security-line-crossing-api)
+- [Face Detection (videoFaceDetect)](/docs/applications/face-detection-recognition-api)
+- [License Plate Recognition (vehicle)](/docs/applications/license-plate-recognition-camera-api)
+- [People Counting (targetCountingByLine / targetCountingByArea)](/docs/applications/people-counting-traffic-analytics-api)
+
+See the [NVR Event Format](/docs/api-reference/events/nvr-event-format) reference for the complete v2.0 XML structure.
+
+  </TabItem>
+  <TabItem value="xml-ipc" label="IPC XML (v1.x)">
+
+IPC v1.x events use `<smartType type="openAlramObj">` to identify the detection type. Each type uses the same outer structure but different inner elements:
+
+- `PEA` — intrusion or line crossing (check for `<perimeter>` vs `<tripwire>`)
+- `VFD` — face detection
+- `VEHICE` — license plate recognition
+- `PASSLINECOUNT` — line counting
+- `TRAFFIC` — area counting
+- `VSD` — video metadata
+- `AOIENTRY` / `AOILEAVE` — region entry/exit
+
+See the [IPC Event Format](/docs/api-reference/events/ipc-event-format) reference for the complete v1.x XML structure.
+
+  </TabItem>
+</Tabs>
 
 ## Relevant API Endpoints
 
@@ -248,6 +267,15 @@ if __name__ == '__main__':
 | SetHttpPostConfig | Configure webhook destination and subscriptions | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
 | GetHttpPostConfig | Read current webhook configuration | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
 | GetAlarmStatus | Poll current alarm state | [Alarm Status](/docs/api-reference/alarm/alarm-status) |
+
+## Integrations
+
+Viewtron webhook events also integrate with automation platforms via published packages:
+
+| Platform | Package | What It Does |
+|----------|---------|-------------|
+| [Home Assistant](/docs/integrations/home-assistant) | [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) | All detection events as native HA sensors — automate anything in Home Assistant |
+| [Node-RED](/docs/integrations/node-red) | [node-red-contrib-viewtron](https://www.npmjs.com/package/node-red-contrib-viewtron) | All detection events direct to Node-RED flows — visual automation builder |
 
 ## Related Resources
 

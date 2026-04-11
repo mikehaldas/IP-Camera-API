@@ -12,6 +12,9 @@ keywords:
 sidebar_position: 9
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Real-Time Object Tracking API (traject)
 
 Viewtron AI cameras support a unique real-time tracking mode called **traject** that continuously streams target position data to your server via HTTP POST. Unlike alarm-based detection events that fire once per event, traject sends **continuous updates at approximately 7 posts per second** for the entire duration a target is being tracked. Each post is only ~1.7 KB of XML data containing the target ID, target type (person, car, or motorcycle), and bounding box coordinates — no images are included.
@@ -33,7 +36,7 @@ This makes traject fundamentally different from every other detection type in th
 
 1. **Enable traject on the camera** — subscribe to the `traject` data type in the httpPostV2 configuration and enable "Smart track data" in the camera's HTTP Post V2 web interface
 2. **Your server receives continuous XML posts** while any target is being tracked — approximately 7 posts per second per target
-3. **Parse the position data** — each post contains one or more targets with targetId, targetType, and bounding rect coordinates
+3. **Parse the position data** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or [Node.js SDK](/docs/getting-started/nodejs-sdk) — each post contains one or more targets with targetId, targetType, and bounding rect coordinates
 4. **Track targets over time** — use the targetId to correlate posts for the same target, calculate dwell time and movement
 5. **Detect departure** — when posts stop arriving for a targetId, the target has left the camera's view
 
@@ -68,9 +71,110 @@ Each traject POST contains one or more tracked targets:
 The `velocity`, `direction`, and `trajectlength` fields are included in the XML but are typically reported as zero in current firmware. You can calculate speed and direction yourself by tracking bounding box position changes between consecutive posts.
 :::
 
-## Webhook XML Example
+## Parsing Traject Events
 
-### IPC Format — traject
+<Tabs>
+  <TabItem value="python-server" label="Python SDK" default>
+
+The SDK includes a `Traject` class for parsing traject posts. The `ViewtronServer` handles the HTTP connection and keepalives:
+
+```bash
+pip install viewtron
+```
+
+```python
+from viewtron import ViewtronServer
+import time
+
+# Active targets: {targetId: {type, first_seen, last_seen, post_count}}
+active_targets = {}
+TARGET_TIMEOUT = 2.0
+
+def on_traject(event, client_ip):
+    """Called for each traject post (~7/sec per target)."""
+    now = time.time()
+
+    for target in event.targets:
+        tid = target["targetId"]
+        if tid in active_targets:
+            active_targets[tid]["last_seen"] = now
+            active_targets[tid]["post_count"] += 1
+        else:
+            active_targets[tid] = {
+                "type": target["targetType"],
+                "first_seen": now,
+                "last_seen": now,
+                "post_count": 1,
+            }
+            print(f"  [ARRIVED] Target {tid} ({target['targetType']})")
+
+    # Expire departed targets
+    expired = [tid for tid, t in active_targets.items()
+               if now - t["last_seen"] > TARGET_TIMEOUT]
+    for tid in expired:
+        t = active_targets.pop(tid)
+        dwell = t["last_seen"] - t["first_seen"]
+        print(f"  [DEPARTED] Target {tid} ({t['type']}) — "
+              f"dwell: {dwell:.1f}s, posts: {t['post_count']}")
+
+server = ViewtronServer(port=5002, on_traject=on_traject)
+server.serve_forever()
+```
+
+See the [Python SDK reference](/docs/getting-started/python-sdk) for the full `Traject` class API.
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js SDK">
+
+```bash
+npm install viewtron-sdk
+```
+
+```javascript
+const { ViewtronServer } = require('viewtron-sdk');
+
+const activeTargets = new Map();
+const TARGET_TIMEOUT = 2000; // ms
+
+const server = new ViewtronServer({ port: 5002 });
+
+server.on('traject', (event, clientIP) => {
+  const now = Date.now();
+
+  for (const target of event.targets) {
+    const tid = target.targetId;
+    if (activeTargets.has(tid)) {
+      const t = activeTargets.get(tid);
+      t.lastSeen = now;
+      t.postCount++;
+    } else {
+      activeTargets.set(tid, {
+        type: target.targetType,
+        firstSeen: now,
+        lastSeen: now,
+        postCount: 1,
+      });
+      console.log(`  [ARRIVED] Target ${tid} (${target.targetType})`);
+    }
+  }
+
+  // Expire departed targets
+  for (const [tid, t] of activeTargets) {
+    if (now - t.lastSeen > TARGET_TIMEOUT) {
+      const dwell = ((t.lastSeen - t.firstSeen) / 1000).toFixed(1);
+      console.log(`  [DEPARTED] Target ${tid} (${t.type}) — dwell: ${dwell}s, posts: ${t.postCount}`);
+      activeTargets.delete(tid);
+    }
+  }
+});
+
+server.start();
+```
+
+  </TabItem>
+  <TabItem value="xml-ipc" label="IPC XML (v1.x)">
+
+Traject is IPC-only. Each post contains a `<traject>` list with one or more tracked targets:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -119,6 +223,11 @@ The `velocity`, `direction`, and `trajectlength` fields are included in the XML 
 
 Multiple targets can be tracked simultaneously — each appears as a separate `<item>` in the `<traject>` list with a unique `targetId`. The `count` attribute reflects the number of targets in that post.
 
+See the [IPC Event Format](/docs/api-reference/events/ipc-event-format) reference for the complete v1.x XML structure.
+
+  </TabItem>
+</Tabs>
+
 ## Configuration
 
 Enable traject on an IPC camera by sending this XML to `SetHttpPostConfig`:
@@ -162,148 +271,6 @@ The **"Smart track data" checkbox must also be enabled** in the camera's HTTP Po
 - **Recommended dual setup:** Configure the NVR's HTTP POST for alarm events with images, and configure the IPC's httpPostV2 for traject tracking. This gives you both event snapshots and continuous position data.
 - **New targetId per entry.** Each time a target enters the camera's view, it receives a new unique targetId. The same physical person will get different IDs if they leave and return.
 
-## Quick Start Example
-
-This standalone script listens for traject posts and displays a live updating console showing active targets, post rate, and dwell time. The SDK includes a `Traject` class for parsing these events, but this example shows the raw XML approach with xmltodict:
-
-```python
-#!/usr/bin/env python3
-"""Real-Time Traject Tracker — Viewtron IP Camera API"""
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime as dt
-import xmltodict
-import time
-import sys
-
-# pip install xmltodict
-
-PORT = 5002
-
-# Active targets: {targetId: {type, first_seen, last_seen, post_count, last_rect}}
-active_targets = {}
-total_posts = 0
-start_time = time.time()
-
-# Expire targets after this many seconds without a post
-TARGET_TIMEOUT = 2.0
-
-class TrajectHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        global total_posts
-
-        # Respond with success XML
-        response = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        response += '<config version="1.0" xmlns="http://www.ipc.com/ver10">\n'
-        response += '  <status>success</status>\n</config>'
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/xml')
-        self.send_header('Content-Length', str(len(response)))
-        self.end_headers()
-        self.wfile.write(response.encode())
-
-        # Read POST body
-        length = int(self.headers.get('Content-Length', 0))
-        if length == 0:
-            return
-        body = self.rfile.read(length).decode('utf-8', errors='replace')
-        if '<?xml' not in body:
-            return
-
-        try:
-            data = xmltodict.parse(body)
-            config = data.get('config', {})
-
-            # Check for traject data
-            traject = config.get('traject', {})
-            if not traject:
-                return
-
-            now = time.time()
-            total_posts += 1
-
-            # Parse target items
-            items = traject.get('item', [])
-            if not isinstance(items, list):
-                items = [items] if items else []
-
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-
-                target_id_raw = item.get('targetId', {})
-                target_id = (target_id_raw.get('#text') if isinstance(target_id_raw, dict)
-                             else str(target_id_raw))
-
-                target_type_raw = item.get('targetType', {})
-                target_type = (target_type_raw.get('#text') if isinstance(target_type_raw, dict)
-                               else str(target_type_raw))
-
-                rect = item.get('rect', {})
-                rect_str = "({},{}) ({},{})".format(
-                    rect.get('x1', {}).get('#text', '0') if isinstance(rect.get('x1'), dict) else rect.get('x1', '0'),
-                    rect.get('y1', {}).get('#text', '0') if isinstance(rect.get('y1'), dict) else rect.get('y1', '0'),
-                    rect.get('x2', {}).get('#text', '0') if isinstance(rect.get('x2'), dict) else rect.get('x2', '0'),
-                    rect.get('y2', {}).get('#text', '0') if isinstance(rect.get('y2'), dict) else rect.get('y2', '0'),
-                )
-
-                if target_id in active_targets:
-                    active_targets[target_id]['last_seen'] = now
-                    active_targets[target_id]['post_count'] += 1
-                    active_targets[target_id]['last_rect'] = rect_str
-                else:
-                    active_targets[target_id] = {
-                        'type': target_type,
-                        'first_seen': now,
-                        'last_seen': now,
-                        'post_count': 1,
-                        'last_rect': rect_str,
-                    }
-
-            # Expire old targets
-            expired = [tid for tid, t in active_targets.items()
-                       if now - t['last_seen'] > TARGET_TIMEOUT]
-            for tid in expired:
-                t = active_targets.pop(tid)
-                dwell = t['last_seen'] - t['first_seen']
-                print(f"\n  [DEPARTED] Target {tid} ({t['type']}) — "
-                      f"dwell: {dwell:.1f}s, posts: {t['post_count']}")
-
-            # Display live status
-            elapsed = now - start_time
-            rate = total_posts / elapsed if elapsed > 0 else 0
-            active_list = ", ".join(
-                f"{tid}:{t['type']}({t['post_count']})"
-                for tid, t in active_targets.items()
-            )
-            status = (f"\r  Active: [{active_list or 'none'}]  "
-                      f"Total posts: {total_posts}  Rate: {rate:.1f}/sec  ")
-            sys.stdout.write(status)
-            sys.stdout.flush()
-
-        except Exception as e:
-            print(f"\nError: {e}")
-
-    def log_message(self, format, *args):
-        pass  # Suppress default HTTP log output
-
-if __name__ == '__main__':
-    print(f"Traject Tracker running on port {PORT}")
-    print(f"Waiting for traject data...\n")
-    print(f"  Targets will show as targetId:type(post_count)")
-    print(f"  Departed targets will show dwell time and total posts\n")
-    HTTPServer(('', PORT), TrajectHandler).serve_forever()
-```
-
-**To run:**
-
-```bash
-pip install xmltodict
-python3 traject_tracker.py
-```
-
-Then configure your IPC camera to send httpPostV2 traject data to `http://<your-server-ip>:5002/`.
-
 **For a working automation example**, see the [ESP8266 Relay Controller](https://github.com/mikehaldas/IP-Camera-API) project, which uses traject data to control a relay for continuous human presence detection — keeping a relay energized for the entire duration a person is in view with zero gaps.
 
 ## Relevant API Endpoints
@@ -313,6 +280,15 @@ Then configure your IPC camera to send httpPostV2 traject data to `http://<your-
 | SetHttpPostConfig | Configure httpPostV2 with traject subscription | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
 | GetHttpPostConfig | Read current httpPostV2 configuration | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
 | GetSmartPerimeterConfig | Configure the perimeter detection zone that triggers tracking | [Intrusion Detection Config](/docs/api-reference/smart-detection/intrusion-perimeter-detection-config) |
+
+## Integrations
+
+Viewtron traject tracking also integrates with automation platforms via published packages:
+
+| Platform | Package | What It Does |
+|----------|---------|-------------|
+| [Home Assistant](/docs/integrations/home-assistant) | [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) | Real-time presence detection as native HA sensors — automate lights, relays, alarms |
+| [Node-RED](/docs/integrations/node-red) | [node-red-contrib-viewtron](https://www.npmjs.com/package/node-red-contrib-viewtron) | Traject data direct to Node-RED flows — build presence logic visually |
 
 ## Related Applications
 

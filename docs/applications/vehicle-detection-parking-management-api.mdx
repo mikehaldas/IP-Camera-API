@@ -12,6 +12,9 @@ keywords:
 sidebar_position: 10
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Vehicle Detection & Parking Management API
 
 Viewtron AI security cameras include built-in illegal parking detection (PVD) that runs entirely on the camera hardware — no cloud service or external AI software required. When a vehicle parks in a designated prohibited zone and remains beyond a configurable time threshold, the camera sends an HTTP POST webhook to your server with the detection event data, including images of the violation.
@@ -37,7 +40,7 @@ PVD (illegal parking detection) has not been fully tested via HTTP Post webhook 
 2. **Set the dwell time threshold** — configure how long a vehicle must remain parked before triggering an alert
 3. **Enable HTTP POST webhooks** — point the camera at your server's IP and port
 4. **Your server receives XML** when a violation occurs — the POST includes the PVD event data with images
-5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or raw XML parsing
+5. **Parse the event** using the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or [Node.js SDK](/docs/getting-started/nodejs-sdk)
 6. **Take action** — save violation images, log to CSV, send alerts, or trigger enforcement workflows
 
 ## Event Data Included
@@ -55,126 +58,138 @@ Each parking violation webhook POST is expected to contain:
 | `targetBase64Data` | Cropped vehicle JPEG image (base64 encoded) |
 | `currentTime` | Detection timestamp |
 
-## Quick Start Example
+## Parsing Parking Violation Events
 
-This standalone script listens for parking violation events, prints details to the console, saves images, and logs to CSV:
+<Tabs>
+  <TabItem value="python-server" label="Python SDK" default>
 
-```python
-#!/usr/bin/env python3
-"""Parking Violation Detection Receiver — Viewtron IP Camera API"""
-
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime as dt
-import xmltodict
-import base64
-import csv
-import os
-
-# pip install xmltodict
-# pip install viewtron
-from viewtron import IllegalParking
-
-PORT = 5002
-IMG_DIR = "images"
-CSV_FILE = "parking_violations.csv"
-os.makedirs(IMG_DIR, exist_ok=True)
-
-
-class ParkingViolationHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        # Respond with success XML to keep connection alive
-        response = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        response += '<config version="1.0" xmlns="http://www.ipc.com/ver10">\n'
-        response += '  <status>success</status>\n</config>'
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/xml')
-        self.send_header('Content-Length', str(len(response)))
-        self.end_headers()
-        self.wfile.write(response.encode())
-
-        # Read POST body
-        length = int(self.headers.get('Content-Length', 0))
-        if length == 0:
-            return
-        body = self.rfile.read(length).decode('utf-8', errors='replace')
-        if '<?xml' not in body:
-            return
-
-        try:
-            data = xmltodict.parse(body)
-            config = data.get('config', {})
-            version = config.get('@version', '')
-
-            # PVD is currently IPC-only (v1.x format)
-            if version.startswith('2'):
-                # NVR v2.0 PVD forwarding has not been tested
-                return
-
-            st = config.get('smartType', {})
-            alarm_type = (st.get('#text') or str(st)).strip() if isinstance(st, dict) else str(st).strip()
-            if alarm_type != 'PVD':
-                return
-
-            event = IllegalParking(body)
-            client_ip = self.client_address[0]
-
-            # Print event details
-            print(f"\n{'='*60}")
-            print(f"[{dt.now():%Y-%m-%d %H:%M:%S}] PARKING VIOLATION DETECTED")
-            print(f"  Camera: {event.get_ip_cam()}")
-            print(f"  Source: {client_ip}")
-            print(f"  Type: {event.get_alarm_description()}")
-            print(f"  Time: {event.get_time_stamp_formatted()}")
-
-            # Save images
-            ts = event.get_time_stamp()
-            saved_files = []
-            for get_img, exists, suffix in [
-                (event.get_source_image, event.source_image_exists, "overview"),
-                (event.get_target_image, event.target_image_exists, "vehicle"),
-            ]:
-                if exists() and get_img():
-                    path = os.path.join(IMG_DIR, f"{ts}-parking-violation-{suffix}.jpg")
-                    with open(path, "wb") as f:
-                        f.write(base64.b64decode(get_img()))
-                    saved_files.append(path)
-                    print(f"  Image: {path}")
-
-            # Log to CSV
-            with open(CSV_FILE, 'a', newline='') as f:
-                csv.writer(f).writerow([
-                    event.get_time_stamp_formatted(),
-                    event.get_ip_cam(),
-                    event.get_alarm_type(),
-                    event.get_alarm_description(),
-                    client_ip,
-                    "|".join(saved_files),
-                ])
-            print(f"  Logged to {CSV_FILE}")
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-    def log_message(self, format, *args):
-        pass  # Suppress default HTTP log output
-
-if __name__ == '__main__':
-    print(f"Parking Violation Receiver running on port {PORT}")
-    print(f"Images will be saved to {IMG_DIR}/")
-    print(f"Events will be logged to {CSV_FILE}")
-    print(f"Waiting for parking violation events...\n")
-    HTTPServer(('', PORT), ParkingViolationHandler).serve_forever()
-```
-
-**To run:**
+The simplest way to receive parking violation events. The SDK's `ViewtronServer` handles HTTP connections, keepalives, XML parsing, and version detection — you just write the callback:
 
 ```bash
-pip install xmltodict
-# pip install viewtron
-python3 parking_receiver.py
+pip install viewtron
 ```
 
-Then configure your camera to send HTTP POST events to `http://<your-server-ip>:5002/`. Enable the PVD detection type in the camera's httpPost subscription settings.
+```python
+from viewtron import ViewtronServer
+import os
+
+IMG_DIR = "images"
+os.makedirs(IMG_DIR, exist_ok=True)
+
+def on_event(event, client_ip):
+    if event.category != "intrusion":
+        return
+    # PVD events use the intrusion category with PVD alarm type
+    if event.get_alarm_type() not in ("PVD", "illegalParking"):
+        return
+    print(f"Parking violation detected from {client_ip}")
+    print(f"  Type: {event.get_alarm_description()}")
+    print(f"  Time: {event.get_time_stamp_formatted()}")
+
+    overview = event.get_source_image_bytes()
+    if overview:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-parking-violation-overview.jpg", "wb") as f:
+            f.write(overview)
+
+    target = event.get_target_image_bytes()
+    if target:
+        with open(f"{IMG_DIR}/{event.get_time_stamp()}-parking-violation-vehicle.jpg", "wb") as f:
+            f.write(target)
+
+server = ViewtronServer(port=5002, on_event=on_event)
+server.serve_forever()
+```
+
+See the [Python SDK reference](/docs/getting-started/python-sdk) for the full list of methods and event classes.
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js SDK">
+
+```bash
+npm install viewtron-sdk
+```
+
+```javascript
+const { ViewtronServer } = require('viewtron-sdk');
+const fs = require('fs');
+
+fs.mkdirSync('images', { recursive: true });
+
+const server = new ViewtronServer({ port: 5002 });
+
+server.on('event', (event, clientIP) => {
+  if (event.category !== 'intrusion') return;
+  if (event.eventType !== 'PVD' && event.eventType !== 'illegalParking') return;
+  console.log(`Parking violation detected from ${clientIP}`);
+  console.log(`  Status: ${event.status}`);
+
+  if (event.sourceImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-parking-violation-overview.jpg`,
+      event.sourceImageBytes
+    );
+  }
+
+  if (event.targetImageBytes) {
+    fs.writeFileSync(
+      `images/${Date.now()}-parking-violation-vehicle.jpg`,
+      event.targetImageBytes
+    );
+  }
+});
+
+server.start();
+```
+
+  </TabItem>
+  <TabItem value="xml-ipc" label="IPC XML (v1.x)">
+
+The PVD event format follows the standard IPC smart detection pattern with a `<perimeter>` block:
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<config version="1.7" xmlns="http://www.ipc.com/ver10">
+  <smartType type="openAlramObj">PVD</smartType>
+  <deviceName type="string"><![CDATA[ParkingLot]]></deviceName>
+  <currentTime type="tint64">1774792701902505</currentTime>
+  <perimeter>
+    <perInfo type="list" count="1">
+      <item>
+        <eventId type="uint32">6100</eventId>
+        <targetId type="uint32">5900</targetId>
+        <status type="perStatus">SMART_START</status>
+        <boundary type="list" count="4">
+          <item><point><x type="uint32">1000</x><y type="uint32">3000</y></point></item>
+          <item><point><x type="uint32">6000</x><y type="uint32">3000</y></point></item>
+          <item><point><x type="uint32">6000</x><y type="uint32">8000</y></point></item>
+          <item><point><x type="uint32">1000</x><y type="uint32">8000</y></point></item>
+        </boundary>
+        <rect>
+          <x1 type="uint32">2500</x1><y1 type="uint32">3500</y1>
+          <x2 type="uint32">5500</x2><y2 type="uint32">7500</y2>
+        </rect>
+      </item>
+    </perInfo>
+  </perimeter>
+  <sourceDataInfo>
+    <sourceBase64Length>430000</sourceBase64Length>
+    <sourceBase64Data>... (base64 JPEG) ...</sourceBase64Data>
+  </sourceDataInfo>
+  <listInfo count="1">
+    <item>
+      <targetImageData>
+        <targetBase64Length>70000</targetBase64Length>
+        <targetBase64Data>... (base64 JPEG) ...</targetBase64Data>
+      </targetImageData>
+    </item>
+  </listInfo>
+</config>
+```
+
+See the [IPC Event Format](/docs/api-reference/events/ipc-event-format) reference for the complete v1.x XML structure.
+
+  </TabItem>
+</Tabs>
 
 ## Relevant API Endpoints
 
@@ -183,6 +198,15 @@ Then configure your camera to send HTTP POST events to `http://<your-server-ip>:
 | GetSmartPvdConfig | Read parking violation detection zone configuration | [Parking Violation Config](/docs/api-reference/smart-detection/parking-violation-detection-config) |
 | SetHttpPostConfig | Configure webhook destination | [Webhook Config](/docs/api-reference/alarm/http-post-webhook-config) |
 | GetAlarmStatus | Poll current alarm state | [Alarm Status](/docs/api-reference/alarm/alarm-status) |
+
+## Integrations
+
+Viewtron vehicle detection also integrates with automation platforms via published packages:
+
+| Platform | Package | What It Does |
+|----------|---------|-------------|
+| [Home Assistant](/docs/integrations/home-assistant) | [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) | Vehicle detection events as native HA sensors — automate gates, alerts, notifications |
+| [Node-RED](/docs/integrations/node-red) | [node-red-contrib-viewtron](https://www.npmjs.com/package/node-red-contrib-viewtron) | Vehicle detection events direct to Node-RED flows — no middleware needed |
 
 ## Related Applications
 
