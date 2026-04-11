@@ -103,6 +103,47 @@ server.serve_forever()
 See the [Python SDK reference](/docs/getting-started/python-sdk) for the full list of methods and event classes.
 
   </TabItem>
+  <TabItem value="nodejs" label="Node.js SDK">
+
+```bash
+npm install viewtron-sdk
+```
+
+```javascript
+const { ViewtronServer } = require('viewtron-sdk');
+const fs = require('fs');
+const path = require('path');
+
+const IMG_DIR = 'images';
+if (!fs.existsSync(IMG_DIR)) fs.mkdirSync(IMG_DIR);
+
+const server = new ViewtronServer({ port: 5002 });
+
+server.on('event', (event, clientIP) => {
+  if (event.category !== 'lpr') return;
+
+  console.log(`Plate: ${event.plateNumber} | Group: ${event.plateGroup || 'Unknown'}`);
+
+  // Save plate crop image
+  if (event.targetImageBytes) {
+    fs.writeFileSync(
+      path.join(IMG_DIR, `${event.plateNumber}.jpg`),
+      event.targetImageBytes
+    );
+  }
+
+  // NVR v2.0 includes vehicle attributes
+  if (event.vehicle) {
+    console.log(`  Vehicle: ${event.vehicle.brand} ${event.vehicle.model}`);
+  }
+});
+
+server.start();
+```
+
+See the [Node.js SDK reference](/docs/category/nodejs-sdk-reference) for all event properties and server options.
+
+  </TabItem>
   <TabItem value="xml-nvr" label="NVR XML (v2.0)">
 
 The NVR v2.0 format uses `licensePlateListInfo` with detailed vehicle attributes and `licensePlateMatchInfo` for plate database group matching:
