@@ -7,3 +7,4 @@ ha_bridge.yaml
 ha_images/
 venv/
 docs/python-sdk-reference/
+docs/nodejs-sdk-reference/
