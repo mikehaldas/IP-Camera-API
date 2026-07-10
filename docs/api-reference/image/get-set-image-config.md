@@ -1,7 +1,7 @@
 ---
 title: "GetImageConfig / SetImageConfig — Image Settings"
-description: "API reference for GetImageConfig and SetImageConfig — adjust brightness, contrast, and saturation on Viewtron IP cameras."
-keywords: [ip camera image settings api, viewtron api, camera brightness contrast]
+description: "API reference for GetImageConfig and SetImageConfig — adjust brightness, contrast, saturation, and Smart IR intensity on Viewtron IP cameras."
+keywords: [ip camera image settings api, viewtron api, camera brightness contrast, smart ir, manual ir intensity, ircut mode]
 sidebar_label: "Image Config"
 sidebar_position: 1
 ---
@@ -35,7 +35,10 @@ Get or set image parameters (brightness, contrast, saturation, etc.).
 | `whiteBalance.red` | uint8/uint32 | 0--100 | 50 | Red gain (manual mode) |
 | `whiteBalance.blue` | uint8/uint32 | 0--100 | 50 | Blue gain (manual mode) |
 | `backlightCompensation.mode` | enum | OFF, HWDR, HLC, BLC | OFF | Backlight compensation (v2.0) |
-| `infraredMode` | enum | auto, ... | auto | Infrared LED mode (v2.0) |
+| `infraredMode` | enum | auto, on, off | auto | Infrared LED mode (v2.0) |
+| `smartIRV2.mode` | enum | off, manual, auto | -- | Smart IR mode (dome cameras). Set to `manual` to control IR intensity |
+| `smartIRV2.lightLevel[].id` | uint32 | -- | 1 | IR lamp-group ID |
+| `smartIRV2.lightLevel[].level` | uint8 | 0--100 | 50 | **IR intensity level.** Dependent — writable only when `smartIRV2.mode` = `manual` |
 
 ## Response (v2.0)
 
@@ -62,6 +65,11 @@ Get or set image parameters (brightness, contrast, saturation, etc.).
       <enum>HLC</enum>
       <enum>BLC</enum>
     </BLCMode>
+    <smartIRMode>
+      <enum>off</enum>
+      <enum>manual</enum>
+      <enum>auto</enum>
+    </smartIRMode>
   </types>
   <cfgFile type="configFileType" default="normal">normal</cfgFile>
   <image>
@@ -80,10 +88,57 @@ Get or set image parameters (brightness, contrast, saturation, etc.).
     <backlightCompensation>
       <mode type="BLCMode" default="OFF">OFF</mode>
     </backlightCompensation>
+    <smartIRV2>
+      <mode type="smartIRMode">manual</mode>
+      <lightLevel type="list" maxCount="1" count="1">
+        <item>
+          <id type="uint32">1</id>
+          <level type="uint8" min="0" max="100" default="50">50</level>
+        </item>
+      </lightLevel>
+    </smartIRV2>
     <infraredMode type="infraredModeE" default="auto">auto</infraredMode>
   </image>
 </config>
 ```
+
+:::note Smart IR — manual IR intensity control
+On cameras with controllable infrared LEDs (typically dome models), IR brightness is set through the **`smartIRV2`** block:
+
+- Set **`smartIRV2.mode`** to `manual` to take manual control (`auto` lets the camera adjust intensity automatically; `off` disables Smart IR).
+- Then set **`smartIRV2.lightLevel.item.level`** (0–100) — this is the IR intensity value. It is only honored when `mode` is `manual`.
+- `id` identifies the IR lamp group; cameras with a single IR array use `id` `1`.
+
+**Set example (manual IR at 80%):**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10">
+  <image>
+    <smartIRV2>
+      <mode>manual</mode>
+      <lightLevel type="list" maxCount="1" count="1">
+        <item>
+          <id>1</id>
+          <level>80</level>
+        </item>
+      </lightLevel>
+    </smartIRV2>
+  </image>
+</config>
+```
+
+**If `GetImageConfig` does not return a `smartIRV2` (or `smartIR`) block**, the camera's current firmware or hardware does not expose controllable Smart IR, and `SetImageConfig` writes to those fields are silently ignored. Confirm the model supports it (check `supportInfraredLamp` in [GetDeviceDetail](../system/get-device-detail)) and that the camera is on current firmware — `smartIRV2` was introduced in a later firmware revision than the base v2.0 image config.
+
+**Legacy firmware** exposes a simpler single-lamp form instead:
+
+```xml
+<smartIR>
+  <mode type="smartIRMode">manual</mode>
+  <level type="uint8" min="0" max="100" default="50">50</level>
+</smartIR>
+```
+:::
 
 ## Response (v1.9)
 
