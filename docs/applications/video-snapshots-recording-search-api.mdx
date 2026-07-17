@@ -12,6 +12,9 @@ keywords:
 sidebar_position: 12
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Video Snapshots & Recording Search API
 
 Viewtron IP cameras and NVRs provide HTTP API endpoints for capturing live JPEG snapshots and searching recorded video segments by time range. Unlike webhook-based detections where the camera pushes events to your server, snapshot and recording search are outbound API calls — your application sends HTTP requests to the camera or NVR on demand.
@@ -161,7 +164,10 @@ ffmpeg -rtsp_transport tcp -stimeout 5000000 \
 
 ### Example 1: Snapshot Capture & Recording Search
 
-Use the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or direct HTTP requests to capture snapshots and search recordings:
+Use the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`) or direct HTTP requests to capture snapshots and search recordings.
+
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
 ```python
 #!/usr/bin/env python3
@@ -255,9 +261,128 @@ if __name__ == '__main__':
     )
 ```
 
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js">
+
+```javascript
+#!/usr/bin/env node
+/**
+ * Snapshot Capture & Recording Search — Viewtron IP Camera API
+ * Requires Node.js 18+ (native fetch)
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+const HOST = '192.168.0.50';
+const USER = 'admin';
+const PASS = 'password123';
+const CHANNEL = 1;
+const IMG_DIR = 'snapshots';
+
+fs.mkdirSync(IMG_DIR, { recursive: true });
+
+const AUTH = 'Basic ' + Buffer.from(`${USER}:${PASS}`).toString('base64');
+
+async function captureLiveSnapshot(channel = 1) {
+  const url = `http://${HOST}/GetSnapshot/${channel}`;
+  const res = await fetch(url, {
+    headers: { Authorization: AUTH },
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!res.ok) {
+    console.log(`Snapshot failed: HTTP ${res.status}`);
+    return null;
+  }
+
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
+  const contentType = res.headers.get('content-type') || '';
+
+  let imgPath;
+
+  if (contentType.includes('image/jpeg')) {
+    // v1.9: raw JPEG response
+    imgPath = path.join(IMG_DIR, `snapshot_ch${channel}_${ts}.jpg`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    fs.writeFileSync(imgPath, buffer);
+  } else if (contentType.includes('xml')) {
+    // v2.0: base64 in XML — extract with string parsing
+    const xml = await res.text();
+    const match = xml.match(/<sourceBase64Data>([\s\S]*?)<\/sourceBase64Data>/);
+    if (!match) {
+      console.log('No image data in response');
+      return null;
+    }
+    imgPath = path.join(IMG_DIR, `snapshot_ch${channel}_${ts}.jpg`);
+    fs.writeFileSync(imgPath, Buffer.from(match[1].trim(), 'base64'));
+  }
+
+  console.log(`Snapshot saved: ${imgPath}`);
+  return imgPath;
+}
+
+async function searchRecordings(channel = 1, start, end) {
+  const url = `http://${HOST}/SearchByTime/${channel}`;
+  const xmlBody = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<config version="1.0" xmlns="http://www.ipc.com/ver10">',
+    '  <search>',
+    '    <recTypes type="list">',
+    '      <itemType type="recType"></itemType>',
+    '      <item>manual</item><item>schedule</item>',
+    '      <item>motion</item><item>intel detection</item>',
+    '    </recTypes>',
+    `    <starttime type="string"><![CDATA[${start}]]></starttime>`,
+    `    <endtime type="string"><![CDATA[${end}]]></endtime>`,
+    '  </search>',
+    '</config>',
+  ].join('\n');
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: AUTH,
+      'Content-Type': 'application/xml',
+    },
+    body: xmlBody,
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (res.ok) {
+    const text = await res.text();
+    console.log(`Recording search results (${start} to ${end}):`);
+    console.log(text.slice(0, 2000));
+  } else {
+    console.log(`Search failed: HTTP ${res.status}`);
+  }
+}
+
+async function main() {
+  console.log(`Target: ${HOST} (Channel ${CHANNEL})\n`);
+
+  console.log('Capturing live snapshot...');
+  await captureLiveSnapshot(CHANNEL);
+
+  console.log('\nSearching recordings (last 24 hours)...');
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const fmt = (d) => d.toISOString().replace('T', ' ').slice(0, 19);
+  await searchRecordings(CHANNEL, fmt(yesterday), fmt(now));
+}
+
+main().catch(console.error);
+```
+
+  </TabItem>
+</Tabs>
+
 ### Example 2: NVR Clip Export Tool
 
 This script exports recorded video clips from the NVR using the RTSP playback URL and FFmpeg. It copies the video stream as-is with no re-encoding.
+
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
 ```python
 #!/usr/bin/env python3
@@ -395,6 +520,156 @@ python3 clip_export.py -c 1 -s "2026-04-02 11:00:00" -d 10
 # Export to a specific directory
 python3 clip_export.py -c 1 -s "2026-04-02 11:00:00" -d 30 -o /tmp/clips/
 ```
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js">
+
+```javascript
+#!/usr/bin/env node
+/**
+ * NVR Clip Export Tool — Viewtron IP Camera API
+ *
+ * Exports a recorded video clip from the NVR via RTSP playback.
+ * Uses FFmpeg with -c:v copy for fast, lossless export.
+ *
+ * Usage:
+ *   node clip_export.js -c 1 -s "2026-04-02 11:00:00" -d 10
+ *   node clip_export.js -c 1 -s "2026-04-02 11:00:00" -d 30 -o /tmp/clips/
+ */
+
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+// NVR connection settings
+const NVR_IP = '192.168.0.50';
+const NVR_USER = 'admin';
+const NVR_PASS = 'password123';
+const RTSP_PORT = 554;
+
+function buildPlaybackUrl(channelId, dateStr, timeStr, duration) {
+  return (
+    `rtsp://${NVR_USER}:${NVR_PASS}` +
+    `@${NVR_IP}:${RTSP_PORT}` +
+    `/chID=${channelId}` +
+    `&date=${dateStr}` +
+    `&time=${timeStr}` +
+    `&timelen=${duration}` +
+    `&streamType=main` +
+    `&action=playback`
+  );
+}
+
+function exportClip(channelId, startDt, duration, outputDir) {
+  const dateStr = startDt.toISOString().slice(0, 10);
+  const timeStr = startDt.toTimeString().slice(0, 8);
+  const rtspUrl = buildPlaybackUrl(channelId, dateStr, timeStr, duration);
+
+  // Build output filename
+  const tsSlug = `${dateStr}_${timeStr.replace(/:/g, '-')}`;
+  const filename = `ch${channelId}_${tsSlug}_${duration}s.mp4`;
+  const outputPath = path.join(outputDir, filename);
+
+  // FFmpeg command — copy video as-is, no audio, auto-stop
+  const cmd = [
+    'ffmpeg',
+    '-rtsp_transport', 'tcp',
+    '-stimeout', '5000000',
+    '-i', `"${rtspUrl}"`,
+    '-t', String(duration),
+    '-c:v', 'copy',
+    '-an',
+    '-y',
+    `"${outputPath}"`,
+  ].join(' ');
+
+  console.log(`Exporting: channel ${channelId}, ${dateStr} ${timeStr}, ${duration}s`);
+  console.log(`Output: ${outputPath}`);
+
+  const t0 = Date.now();
+  try {
+    execSync(cmd, { stdio: 'pipe' });
+  } catch (err) {
+    console.error(`FFmpeg failed (exit ${err.status}):`);
+    const stderr = err.stderr?.toString() || '';
+    console.error(stderr.slice(-500));
+    process.exit(1);
+  }
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+
+  // Verify output with ffprobe
+  try {
+    const probe = execSync(
+      `ffprobe -v error -select_streams v:0 ` +
+      `-show_entries stream=width,height,r_frame_rate,codec_name ` +
+      `-of default=noprint_wrappers=1 "${outputPath}"`,
+      { encoding: 'utf-8' }
+    );
+    const sizeMb = (fs.statSync(outputPath).size / (1024 * 1024)).toFixed(2);
+    console.log(`\nExport complete in ${elapsed}s`);
+    console.log(probe.trim());
+    console.log(`File size: ${sizeMb} MB`);
+  } catch {
+    console.log(`\nExport complete in ${elapsed}s (ffprobe not available)`);
+  }
+
+  return outputPath;
+}
+
+// CLI argument parsing
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const opts = { channel: null, start: null, duration: 10, outputDir: '.' };
+
+  for (let i = 0; i < args.length; i++) {
+    switch (args[i]) {
+      case '-c': case '--channel':
+        opts.channel = parseInt(args[++i], 10); break;
+      case '-s': case '--start':
+        opts.start = args[++i]; break;
+      case '-d': case '--duration':
+        opts.duration = parseInt(args[++i], 10); break;
+      case '-o': case '--output-dir':
+        opts.outputDir = args[++i]; break;
+    }
+  }
+
+  if (!opts.channel || !opts.start) {
+    console.log('Usage: node clip_export.js -c <channel> -s "YYYY-MM-DD HH:MM:SS" [-d seconds] [-o dir]');
+    console.log('Example: node clip_export.js -c 1 -s "2026-04-02 11:00:00" -d 10');
+    process.exit(1);
+  }
+
+  return opts;
+}
+
+const opts = parseArgs();
+const startDt = new Date(opts.start.replace(' ', 'T'));
+if (isNaN(startDt.getTime())) {
+  console.error('Error: Use format "YYYY-MM-DD HH:MM:SS"');
+  process.exit(1);
+}
+if (opts.duration < 1 || opts.duration > 300) {
+  console.error('Error: Duration must be between 1 and 300 seconds');
+  process.exit(1);
+}
+
+fs.mkdirSync(opts.outputDir, { recursive: true });
+exportClip(opts.channel, startDt, opts.duration, opts.outputDir);
+```
+
+**To run:**
+
+```bash
+# Export a 10-second clip from channel 1
+node clip_export.js -c 1 -s "2026-04-02 11:00:00" -d 10
+
+# Export to a specific directory
+node clip_export.js -c 1 -s "2026-04-02 11:00:00" -d 30 -o /tmp/clips/
+```
+
+  </TabItem>
+</Tabs>
 
 :::tip Advanced: Downscaling During Export
 If you need the exported clip at a different resolution (e.g., to match a substream for AI processing), replace `-c:v copy` with re-encoding flags:

@@ -10,6 +10,9 @@ keywords:
 sidebar_position: 4
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # PTZ Camera Control API (Pan Tilt Zoom)
 
 Viewtron PTZ cameras can be controlled programmatically via HTTP API — pan, tilt, zoom, focus, iris, presets, and cruise tours. Unlike the webhook-based detection features, PTZ control uses outbound HTTP requests that you send to the camera. Any programming language or tool that can make HTTP requests (Python, JavaScript, curl, mobile apps) can control PTZ movement in real time.
@@ -153,6 +156,9 @@ Use `PtzGetCaps` to query the camera's PTZ limits before sending commands:
 
 ## Quick Start Example
 
+<Tabs>
+  <TabItem value="python" label="Python" default>
+
 This standalone script demonstrates PTZ camera control using Python and the `requests` library with Basic Auth:
 
 ```python
@@ -160,7 +166,7 @@ This standalone script demonstrates PTZ camera control using Python and the `req
 """PTZ Camera Controller — Viewtron IP Camera API"""
 
 import requests
-from requests.auth import HTTPDigestAuth
+from requests.auth import HTTPBasicAuth
 import xml.etree.ElementTree as ET
 import time
 
@@ -174,7 +180,7 @@ PASSWORD = "your_password"
 CHANNEL = 1
 
 BASE_URL = f"http://{CAMERA_IP}:{CAMERA_PORT}"
-AUTH = HTTPDigestAuth(USERNAME, PASSWORD)
+AUTH = HTTPBasicAuth(USERNAME, PASSWORD)
 
 
 def ptz_get_caps():
@@ -330,6 +336,220 @@ if __name__ == '__main__':
 pip install requests
 python3 ptz_controller.py
 ```
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js">
+
+This standalone script demonstrates PTZ camera control using Node.js with native `fetch` (Node 18+) and Basic Auth:
+
+```javascript
+#!/usr/bin/env node
+/**
+ * PTZ Camera Controller — Viewtron IP Camera API
+ * Requires Node.js 18+ (native fetch)
+ */
+
+// Camera connection settings
+const CAMERA_IP = '192.168.1.108';
+const CAMERA_PORT = 80;
+const USERNAME = 'admin';
+const PASSWORD = 'your_password';
+const CHANNEL = 1;
+
+const BASE_URL = `http://${CAMERA_IP}:${CAMERA_PORT}`;
+const AUTH_HEADER = 'Basic ' + Buffer.from(`${USERNAME}:${PASSWORD}`).toString('base64');
+
+const HEADERS = {
+  'Content-Type': 'application/xml',
+  'Authorization': AUTH_HEADER,
+};
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function ptzGetCaps() {
+  /** Get PTZ capabilities (speed range, preset count, cruise limits). */
+  const resp = await fetch(`${BASE_URL}/PtzGetCaps/${CHANNEL}`, {
+    headers: { 'Authorization': AUTH_HEADER },
+  });
+  if (!resp.ok) throw new Error(`PtzGetCaps failed: ${resp.status}`);
+  const text = await resp.text();
+  console.log('PTZ Capabilities:');
+  console.log(text);
+  return text;
+}
+
+async function ptzMove(action, speed = 4, duration = 1.0) {
+  /**
+   * Move the camera in a direction for a specified duration.
+   *
+   * Actions: Up, Down, Left, Right, LeftUp, LeftDown, RightUp, RightDown,
+   *          ZoomIn, ZoomOut, Near, Far, IrisOpen, IrisClose, Stop
+   * Speed: 1 (slowest) to 8 (fastest)
+   */
+  const xmlBody = [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<actionInfo version="1.0" xmlns="http://www.ipc.com/ver10">',
+    `  <speed>${speed}</speed>`,
+    '</actionInfo>',
+  ].join('\n');
+
+  const resp = await fetch(`${BASE_URL}/PtzControl/${CHANNEL}/${action}`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: xmlBody,
+  });
+  if (!resp.ok) throw new Error(`PtzControl ${action} failed: ${resp.status}`);
+  console.log(`Moving: ${action} (speed ${speed})`);
+
+  if (action !== 'Stop' && duration > 0) {
+    await sleep(duration * 1000);
+    await ptzStop();
+  }
+}
+
+async function ptzStop() {
+  /** Stop all PTZ movement. */
+  const xmlBody = [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<actionInfo version="1.0" xmlns="http://www.ipc.com/ver10">',
+    '  <speed>1</speed>',
+    '</actionInfo>',
+  ].join('\n');
+
+  await fetch(`${BASE_URL}/PtzControl/${CHANNEL}/Stop`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: xmlBody,
+  });
+  console.log('Stopped.');
+}
+
+async function ptzGotoPreset(presetId) {
+  /** Move the camera to a saved preset position. */
+  const xmlBody = [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<presetInfo version="1.0" xmlns="http://www.ipc.com/ver10">',
+    `  <id>${presetId}</id>`,
+    '</presetInfo>',
+  ].join('\n');
+
+  const resp = await fetch(`${BASE_URL}/PtzGotoPreset/${CHANNEL}`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: xmlBody,
+  });
+  if (!resp.ok) throw new Error(`PtzGotoPreset failed: ${resp.status}`);
+  console.log(`Going to preset ${presetId}`);
+}
+
+async function ptzAddPreset(name) {
+  /** Save the current camera position as a named preset. */
+  const xmlBody = [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<presetInfo version="1.0" xmlns="http://www.ipc.com/ver10">',
+    `  <name><![CDATA[${name}]]></name>`,
+    '</presetInfo>',
+  ].join('\n');
+
+  const resp = await fetch(`${BASE_URL}/PtzAddPreset/${CHANNEL}`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: xmlBody,
+  });
+  if (!resp.ok) throw new Error(`PtzAddPreset failed: ${resp.status}`);
+  console.log(`Saved preset: ${name}`);
+}
+
+async function ptzGetPresets() {
+  /** List all saved preset positions. */
+  const resp = await fetch(`${BASE_URL}/PtzGetPresets/${CHANNEL}`, {
+    headers: { 'Authorization': AUTH_HEADER },
+  });
+  if (!resp.ok) throw new Error(`PtzGetPresets failed: ${resp.status}`);
+  const text = await resp.text();
+  console.log('Saved Presets:');
+
+  // Parse preset items from XML using regex (no dependencies)
+  const itemRegex = /<item\s+id="(\d+)"[^>]*><!\[CDATA\[(.*?)\]\]><\/item>/g;
+  let match;
+  while ((match = itemRegex.exec(text)) !== null) {
+    console.log(`  Preset ${match[1]}: ${match[2] || '(unnamed)'}`);
+  }
+  return text;
+}
+
+async function ptzRunCruise(cruiseId) {
+  /** Start a cruise tour. */
+  const xmlBody = [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<cruiseInfo version="1.0" xmlns="http://www.ipc.com/ver10">',
+    `  <id>${cruiseId}</id>`,
+    '</cruiseInfo>',
+  ].join('\n');
+
+  const resp = await fetch(`${BASE_URL}/PtzRunCruise/${CHANNEL}`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: xmlBody,
+  });
+  if (!resp.ok) throw new Error(`PtzRunCruise failed: ${resp.status}`);
+  console.log(`Started cruise tour ${cruiseId}`);
+}
+
+async function ptzStopCruise() {
+  /** Stop the running cruise tour. */
+  const resp = await fetch(`${BASE_URL}/PtzStopCruise/${CHANNEL}`, {
+    method: 'POST',
+    headers: HEADERS,
+    body: '',
+  });
+  if (!resp.ok) throw new Error(`PtzStopCruise failed: ${resp.status}`);
+  console.log('Stopped cruise tour');
+}
+
+async function main() {
+  // 1. Check PTZ capabilities
+  await ptzGetCaps();
+  console.log();
+
+  // 2. List saved presets
+  await ptzGetPresets();
+  console.log();
+
+  // 3. Pan right for 2 seconds at speed 4, then stop
+  await ptzMove('Right', 4, 2.0);
+  console.log();
+
+  // 4. Zoom in for 1 second
+  await ptzMove('ZoomIn', 3, 1.0);
+  console.log();
+
+  // 5. Go to preset 1
+  await ptzGotoPreset(1);
+  console.log();
+
+  // 6. Save current position as a new preset
+  // await ptzAddPreset('API Test Position');
+
+  // 7. Run cruise tour 1
+  // await ptzRunCruise(1);
+  // await sleep(30000);
+  // await ptzStopCruise();
+}
+
+main().catch(console.error);
+```
+
+**To run:**
+
+```bash
+node ptz_controller.js
+```
+
+  </TabItem>
+</Tabs>
 
 Update the `CAMERA_IP`, `USERNAME`, and `PASSWORD` variables with your camera's credentials.
 

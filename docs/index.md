@@ -33,6 +33,31 @@ All AI inference runs on the camera hardware — no cloud service, external soft
 - **Control alarm outputs** — trigger relays, sirens, and strobe lights programmatically
 - **Query device status** — model info, firmware version, disk capacity, channel configuration
 
+## Documentation Layers
+
+This documentation is organized in four layers, from low-level protocol to ready-made integrations:
+
+### 1. API Reference — Raw HTTP Endpoints
+
+The [API Reference](/docs/category/api-reference) documents every HTTP endpoint exposed by Viewtron cameras and NVRs. All requests use HTTP POST with XML payloads and Basic Authentication. This is language-agnostic — any HTTP client in any language can use it directly.
+
+### 2. SDK Reference — Python & Node.js Libraries
+
+The SDKs wrap the raw API with typed objects, built-in HTTP servers for receiving webhook events, and automatic IPC/NVR version handling.
+
+- **[Python SDK Reference](/docs/category/python-sdk-reference)** — `pip install viewtron` — ViewtronServer receives events, ViewtronEvent parses them, ViewtronCamera manages plate databases
+- **[Node.js SDK Reference](/docs/category/nodejs-sdk-reference)** — `npm install viewtron-sdk` — EventEmitter-based server with the same event model
+
+Developers who don't use our SDKs need to build their own HTTP servers and XML parsing.
+
+### 3. Applications — Solution Guides
+
+[Application guides](/docs/category/applications) show how to build real solutions using the API and SDKs — human detection, LPR gate access, face detection, PTZ control, people counting, and more. Each guide includes working code in both Python and Node.js.
+
+### 4. Integrations — Home Assistant & Node-RED
+
+Pre-built integrations for [Home Assistant](/docs/integrations/home-assistant) (MQTT auto-discovery) and [Node-RED](/docs/integrations/node-red) (direct HTTP POST) — no coding required.
+
 ## Quick Example
 
 ```python
@@ -60,7 +85,7 @@ All [Viewtron IP cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1
 ## Quick Start
 
 1. **Authenticate** — all requests use [Basic Authentication](/docs/getting-started/authentication)
-2. **Install the SDK** — `pip install viewtron` ([Python SDK guide](/docs/getting-started/python-sdk))
+2. **Install an SDK** — `pip install viewtron` ([Python](/docs/category/python-sdk-reference)) or `npm install viewtron-sdk` ([Node.js](/docs/category/nodejs-sdk-reference))
 3. **Test connectivity** — send a `GetDeviceInfo` request to verify access
 4. **Explore Applications** — browse [solution guides](/docs/category/applications) to see what you can build
 5. **Connect to Home Assistant** — set up the [Home Assistant integration](/docs/integrations/home-assistant) for smart home automations
@@ -68,9 +93,10 @@ All [Viewtron IP cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1
 
 ## Resources
 
-- **Python SDK** — [`pip install viewtron`](/docs/getting-started/python-sdk) — parse inbound AI events and control cameras programmatically. Handles all XML formatting and API version differences.
-- **Home Assistant Integration** — [connect Viewtron cameras to Home Assistant](/docs/integrations/home-assistant) via MQTT auto-discovery. LPR, human detection, face detection as native HA sensors.
-- **API Server & Examples** — [github.com/mikehaldas/IP-Camera-API](https://github.com/mikehaldas/IP-Camera-API) — working webhook receiver with the [Viewtron Python SDK](/docs/getting-started/python-sdk) (`pip install viewtron`)
+- **Python SDK** — [`pip install viewtron`](/docs/category/python-sdk-reference) — receive AI detection events and manage plate databases from Python
+- **Node.js SDK** — [`npm install viewtron-sdk`](/docs/category/nodejs-sdk-reference) — EventEmitter-based server for receiving camera events in Node.js
+- **Home Assistant Integration** — [connect Viewtron cameras to Home Assistant](/docs/integrations/home-assistant) via MQTT auto-discovery
+- **API Server & Examples** — [github.com/mikehaldas/IP-Camera-API](https://github.com/mikehaldas/IP-Camera-API) — working webhook receiver examples
 - **Markdown Documentation** — all documentation pages are available as Markdown files in the [GitHub docs directory](https://github.com/mikehaldas/IP-Camera-API/tree/main/docs) for easy integration with AI coding assistants and automated tools
 - **Single-File Reference** — the complete API documentation in [one searchable file](https://github.com/mikehaldas/IP-Camera-API/blob/main/docs/viewtron-api-guide.md) for quick reference and AI assistant ingestion
 - **Support Forum** — [NVR Webhook Setup Guide](https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks)
