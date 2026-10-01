@@ -97,83 +97,120 @@ curl -u admin:password "http://192.168.0.147/TriggerVirtualAlarm/17"
 ## Parsing Detection Events and Triggering Relays
 
 <Tabs>
-  <TabItem value="python-server" label="Python SDK" default>
+  <TabItem value="python" label="Python" default>
 
-The simplest way to receive detection events and trigger relays. The SDK's `ViewtronServer` handles incoming webhooks while `ViewtronCamera` sends outbound relay commands:
+After parsing an intrusion event (see the NVR XML tab), pulse the relay with `POST /ManualAlarmOut`. `status` `true` closes the relay; `status` `false` releases it. Placeholder host `192.168.1.100`, user `admin`, password `your-password`.
 
 ```bash
-pip install viewtron
+pip install requests
 ```
 
 ```python
-from viewtron import ViewtronServer, ViewtronCamera
-import os
-import threading
+import time
+import xml.etree.ElementTree as ET
 
-IMG_DIR = "images"
-os.makedirs(IMG_DIR, exist_ok=True)
+import requests
+from requests.auth import HTTPBasicAuth
 
-# NVR credentials for relay control
-nvr = ViewtronCamera("192.168.0.147", "admin", "password")
-RELAY_DURATION = 15
+HOST = "192.168.1.100"
+PORT = 80
+USERNAME = "admin"
+PASSWORD = "your-password"
+RELAY_DURATION = 15  # seconds
 
-def on_event(event, client_ip):
-    if event.category != "intrusion":
-        return
-    print(f"Person detected from {client_ip} — triggering relay")
-    print(f"  Type: {event.get_alarm_description()}")
 
-    overview = event.get_source_image_bytes()
-    if overview:
-        with open(f"{IMG_DIR}/{event.get_time_stamp()}-relay-overview.jpg", "wb") as f:
-            f.write(overview)
+def manual_alarm_out(active):
+    """POST the trigger or release XML shown above."""
+    status_value = "true" if active else "false"
+    body = f"""<?xml version="1.0" encoding="UTF-8"?>
+<config version="1.0" xmlns="http://www.ipc.com/ver10">
+  <action>
+    <status>{status_value}</status>
+  </action>
+</config>
+"""
+    response = requests.post(
+        f"http://{HOST}:{PORT}/ManualAlarmOut",
+        data=body.encode("utf-8"),
+        headers={"Content-Type": "application/xml; charset=UTF-8"},
+        auth=HTTPBasicAuth(USERNAME, PASSWORD),
+        timeout=5,
+    )
+    response.raise_for_status()
+    root = ET.fromstring(response.text)
+    status = root.attrib.get("status", "")
+    error_code = root.attrib.get("errorCode", "")
+    if status != "success":
+        raise RuntimeError(
+            f"ManualAlarmOut failed: status={status!r} errorCode={error_code!r}"
+        )
 
-    # Trigger relay on NVR
-    nvr.set_alarm_out(True)
-    threading.Timer(RELAY_DURATION, lambda: nvr.set_alarm_out(False)).start()
 
-server = ViewtronServer(port=5002, on_event=on_event)
-server.serve_forever()
+manual_alarm_out(True)
+time.sleep(RELAY_DURATION)
+manual_alarm_out(False)
 ```
-
-See the [Python SDK reference](/docs/getting-started/python-sdk) for the full list of methods and event classes.
 
   </TabItem>
-  <TabItem value="nodejs" label="Node.js SDK">
+  <TabItem value="nodejs" label="Node.js">
 
-```bash
-npm install viewtron-sdk
-```
+Node.js 18 or newer. Built-in `fetch` only — no npm packages. Same `ManualAlarmOut` trigger and release as the Python tab.
 
 ```javascript
-const { ViewtronServer, ViewtronCamera } = require('viewtron-sdk');
-const fs = require('fs');
+const HOST = '192.168.1.100';
+const PORT = 80;
+const USERNAME = 'admin';
+const PASSWORD = 'your-password';
+const RELAY_DURATION_MS = 15000;
 
-fs.mkdirSync('images', { recursive: true });
+function alarmOutXml(active) {
+  const statusValue = active ? 'true' : 'false';
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<config version="1.0" xmlns="http://www.ipc.com/ver10">
+  <action>
+    <status>${statusValue}</status>
+  </action>
+</config>
+`;
+}
 
-const nvr = new ViewtronCamera('192.168.0.147', 'admin', 'password');
-const RELAY_DURATION = 15000; // ms
-
-const server = new ViewtronServer({ port: 5002 });
-
-server.on('event', (event, clientIP) => {
-  if (event.category !== 'intrusion') return;
-  console.log(`Person detected from ${clientIP} — triggering relay`);
-  console.log(`  Type: ${event.eventType} (${event.targetType})`);
-
-  if (event.sourceImageBytes) {
-    fs.writeFileSync(
-      `images/${Date.now()}-relay-overview.jpg`,
-      event.sourceImageBytes
+async function manualAlarmOut(active) {
+  const token = Buffer.from(`${USERNAME}:${PASSWORD}`).toString('base64');
+  const response = await fetch(`http://${HOST}:${PORT}/ManualAlarmOut`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${token}`,
+      'Content-Type': 'application/xml; charset=UTF-8',
+    },
+    body: alarmOutXml(active),
+    signal: AbortSignal.timeout(5000),
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`ManualAlarmOut failed: HTTP ${response.status}`);
+  }
+  const open = /<config\b([^>]*)>/.exec(body);
+  const attrs = open ? open[1] : '';
+  const status = /\bstatus="([^"]*)"/.exec(attrs);
+  const errorCode = /\berrorCode="([^"]*)"/.exec(attrs);
+  const statusValue = status ? status[1] : '';
+  if (statusValue !== 'success') {
+    throw new Error(
+      `ManualAlarmOut failed: status=${JSON.stringify(statusValue)} errorCode=${JSON.stringify(errorCode ? errorCode[1] : '')}`
     );
   }
+}
 
-  // Trigger relay on NVR
-  nvr.setAlarmOut(true);
-  setTimeout(() => nvr.setAlarmOut(false), RELAY_DURATION);
+async function main() {
+  await manualAlarmOut(true);
+  await new Promise((resolve) => setTimeout(resolve, RELAY_DURATION_MS));
+  await manualAlarmOut(false);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exitCode = 1;
 });
-
-server.start();
 ```
 
   </TabItem>
