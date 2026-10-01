@@ -1,0 +1,309 @@
+---
+id: api-reference/alarm/trigger-virtual-alarm
+title: "TriggerVirtualAlarm — Virtual Alarm Control"
+description: "API reference for TriggerVirtualAlarm — trigger virtual alarm inputs on Viewtron NVRs for external system integration."
+keywords: [nvr virtual alarm api, viewtron api, ip camera trigger alarm]
+sidebar_label: "Virtual Alarm"
+sidebar_position: 4
+slug: /api-reference/alarm/trigger-virtual-alarm
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# TriggerVirtualAlarm
+
+Triggers a virtual alarm input on the NVR. Virtual alarms allow external systems to fire NVR alarm events, triggering recording, push notifications, and alarm output actions just like a physical alarm input.
+
+| Field | Value |
+|-------|-------|
+| **Endpoint** | `/TriggerVirtualAlarm/{virtualAlarmId}` |
+| **Method** | `GET` |
+| **Products** | NVR only |
+| **Request Body** | None |
+
+:::caution Version Note
+**v2.0 only.** This is an undocumented command discovered through testing. It is not available on v1.9 firmware.
+:::
+
+---
+
+## Virtual Alarm ID Calculation
+
+Virtual alarm IDs start after the physical alarm inputs. If the NVR has 16 physical alarm inputs, then:
+
+| Virtual Alarm | ID |
+|---------------|-----|
+| Virtual alarm 1 | 17 |
+| Virtual alarm 2 | 18 |
+| Virtual alarm 3 | 19 |
+| ... | ... |
+
+Use `GetAlarmInInfo` to see the full list of physical and virtual alarm inputs and determine the correct ID.
+
+---
+
+## Example
+
+`GET http://{host}:{port}/TriggerVirtualAlarm/{id}` with HTTP Basic authentication. These examples use plain HTTP (`requests` in Python, built-in `fetch` in Node.js 18+). Read the XML root `status` attribute and treat only `status="success"` as success. On any other status, the `errorCode` attribute is the failure code (`errorDesc` is included on v2.0). The response root declares `xmlns="http://www.ipc.com/ver10"`, so the samples match tags by local name.
+
+Placeholder host `192.168.1.100`, user `admin`, and password `your-password` are not a live device.
+
+<Tabs>
+  <TabItem value="curl" label="curl" default>
+
+```bash
+curl --max-time 5 -u admin:your-password "http://192.168.1.100:80/GetAlarmInInfo"
+curl --max-time 5 -u admin:your-password "http://192.168.1.100:80/TriggerVirtualAlarm/17"
+```
+
+  </TabItem>
+  <TabItem value="python" label="Python">
+
+```bash
+pip install requests
+```
+
+```python
+import time
+import xml.etree.ElementTree as ET
+
+import requests
+from requests.auth import HTTPBasicAuth
+
+HOST = "192.168.1.100"
+PORT = 80
+USERNAME = "admin"
+PASSWORD = "your-password"
+TIMEOUT = 5
+
+
+def local_name(tag):
+    """Element local name, ignoring xmlns="http://www.ipc.com/ver10"."""
+    return tag.rsplit("}", 1)[-1]
+
+
+def nvr_get(path):
+    response = requests.get(
+        f"http://{HOST}:{PORT}{path}",
+        auth=HTTPBasicAuth(USERNAME, PASSWORD),
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    return ET.fromstring(response.text)
+
+
+def root_status(root):
+    return (
+        root.attrib.get("status", ""),
+        root.attrib.get("errorCode", ""),
+        root.attrib.get("errorDesc", ""),
+    )
+
+
+def list_virtual_alarm_ids():
+    """GET /GetAlarmInInfo. Return ids whose alarmInType is virtual."""
+    root = nvr_get("/GetAlarmInInfo")
+    ids = []
+    for item in root.iter():
+        if local_name(item.tag) != "item":
+            continue
+        alarm_type = ""
+        alarm_id = ""
+        for child in list(item):
+            name = local_name(child.tag)
+            text = (child.text or "").strip()
+            if name == "alarmInType":
+                alarm_type = text
+            elif name == "id":
+                alarm_id = text
+        if alarm_type == "virtual" and alarm_id:
+            ids.append(int(alarm_id))
+    return ids
+
+
+def trigger_virtual_alarm(alarm_id):
+    """GET /TriggerVirtualAlarm/{id}. Only status="success" is success."""
+    root = nvr_get(f"/TriggerVirtualAlarm/{alarm_id}")
+    status, error_code, error_desc = root_status(root)
+    if status != "success":
+        raise RuntimeError(
+            f"TriggerVirtualAlarm failed: status={status!r} errorCode={error_code!r} errorDesc={error_desc!r}"
+        )
+
+
+def trigger_with_retry(alarm_id, tries=3, delay_seconds=2):
+    """Retry the way a detection box would: 3 tries, 2 seconds apart."""
+    last_error = None
+    for attempt in range(1, tries + 1):
+        try:
+            trigger_virtual_alarm(alarm_id)
+            return
+        except Exception as exc:
+            last_error = exc
+            print(f"attempt {attempt}/{tries} failed: {exc}")
+            if attempt < tries:
+                time.sleep(delay_seconds)
+    raise last_error
+
+
+if __name__ == "__main__":
+    virtual_ids = list_virtual_alarm_ids()
+    print("virtual alarm ids:", virtual_ids)
+    # Virtual alarm 1 is ID 17 when the NVR has 16 physical alarm inputs.
+    alarm_id = virtual_ids[0] if virtual_ids else 17
+    trigger_with_retry(alarm_id)
+    print(f"triggered virtual alarm {alarm_id}")
+```
+
+  </TabItem>
+  <TabItem value="nodejs" label="Node.js">
+
+Node.js 18 or newer. Uses built-in `fetch` and `Buffer`. No npm packages.
+
+```javascript
+const HOST = '192.168.1.100';
+const PORT = 80;
+const USERNAME = 'admin';
+const PASSWORD = 'your-password';
+const TIMEOUT_MS = 5000;
+
+function authHeader() {
+  const token = Buffer.from(`${USERNAME}:${PASSWORD}`).toString('base64');
+  return `Basic ${token}`;
+}
+
+function localTagPattern(name) {
+  return new RegExp(`<${name}\\b[^>]*>([^<]*)<\\/${name}>`);
+}
+
+async function nvrGet(path) {
+  const response = await fetch(`http://${HOST}:${PORT}${path}`, {
+    method: 'GET',
+    headers: { Authorization: authHeader() },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} for ${path}`);
+  }
+  return body;
+}
+
+function rootStatus(xml) {
+  // Attributes live on the root <config> element, which also carries
+  // xmlns="http://www.ipc.com/ver10". Read that opening tag only.
+  const open = /<config\b([^>]*)>/.exec(xml);
+  const attrs = open ? open[1] : '';
+  const read = (name) => {
+    const match = new RegExp(`\\b${name}="([^"]*)"`).exec(attrs);
+    return match ? match[1] : '';
+  };
+  return {
+    status: read('status'),
+    errorCode: read('errorCode'),
+    errorDesc: read('errorDesc'),
+  };
+}
+
+function listVirtualAlarmIds(xml) {
+  const list = /<alarmInInfoList\b[^>]*>([\s\S]*?)<\/alarmInInfoList>/.exec(xml);
+  const block = list ? list[1] : '';
+  const ids = [];
+  const itemRe = /<item\b[^>]*>([\s\S]*?)<\/item>/g;
+  let match;
+  while ((match = itemRe.exec(block)) !== null) {
+    const item = match[1];
+    const alarmType = localTagPattern('alarmInType').exec(item);
+    if (!alarmType || alarmType[1].trim() !== 'virtual') continue;
+    const id = localTagPattern('id').exec(item);
+    if (id) ids.push(Number(id[1].trim()));
+  }
+  return ids;
+}
+
+async function triggerVirtualAlarm(alarmId) {
+  const xml = await nvrGet(`/TriggerVirtualAlarm/${alarmId}`);
+  const { status, errorCode, errorDesc } = rootStatus(xml);
+  if (status !== 'success') {
+    throw new Error(
+      `TriggerVirtualAlarm failed: status=${JSON.stringify(status)} errorCode=${JSON.stringify(errorCode)} errorDesc=${JSON.stringify(errorDesc)}`
+    );
+  }
+}
+
+async function triggerWithRetry(alarmId, tries = 3, delayMs = 2000) {
+  let lastError;
+  for (let attempt = 1; attempt <= tries; attempt += 1) {
+    try {
+      await triggerVirtualAlarm(alarmId);
+      return;
+    } catch (err) {
+      lastError = err;
+      console.error(`attempt ${attempt}/${tries} failed: ${err.message}`);
+      if (attempt < tries) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  throw lastError;
+}
+
+async function main() {
+  const infoXml = await nvrGet('/GetAlarmInInfo');
+  const virtualIds = listVirtualAlarmIds(infoXml);
+  console.log('virtual alarm ids:', virtualIds);
+  // Virtual alarm 1 is ID 17 when the NVR has 16 physical alarm inputs.
+  const alarmId = virtualIds[0] ?? 17;
+  await triggerWithRetry(alarmId);
+  console.log(`triggered virtual alarm ${alarmId}`);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exitCode = 1;
+});
+```
+
+  </TabItem>
+</Tabs>
+
+---
+
+## Response Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.0.0" xmlns="http://www.ipc.com/ver10" status="success" errorCode="0" errorDesc="Successful"></config>
+```
+
+---
+
+## Use Cases
+
+- **AI inference boxes** -- External AI systems can trigger NVR alarm events when they detect objects or events.
+- **Third-party software integration** -- Business logic or automation software can trigger NVR recording and push notifications.
+- **Home automation** -- IoT platforms can trigger NVR alarms based on sensor events (door contacts, motion sensors, etc.).
+
+---
+
+## Example: AI detection box triggering an NVR alarm
+
+An edge AI device detects an object, then sends a virtual alarm to the NVR with `GET /TriggerVirtualAlarm/{id}`. The NVR records, bookmarks the event, and pushes a notification, using the actions configured for that virtual input — the same actions a physical alarm input runs (recording, push notification, email, and alarm-output relay).
+
+A detection box typically does this:
+
+1. At startup, `GET /GetAlarmInInfo` and keep every `id` whose `alarmInType` is `virtual`. On an NVR with 16 physical alarm inputs, virtual alarm 1 is ID 17.
+2. When the device detects an object, `GET /TriggerVirtualAlarm/{id}`.
+3. If the NVR does not answer, or the XML root `status` is not `success`, retry 3 times, 2 seconds apart.
+4. Log `errorCode` whenever `status` is not `success`.
+
+Recording, bookmarks, push notifications, and relay outputs are configured on the NVR under Alarm settings. The Python and Node.js examples above are the calls that loop makes.
+
+---
+
+## Notes
+
+- The virtual alarm behaves identically to a physical alarm input -- it will trigger any configured alarm actions (recording, alarm output relay, push notification, email).
+- Virtual alarm configuration (linked actions, alarm output triggers) is done through the NVR web interface under Alarm settings.
+- This endpoint uses `GET` rather than `POST`, making it simple to trigger from scripts, webhooks, or browser-based tools.
