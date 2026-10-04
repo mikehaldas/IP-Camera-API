@@ -48,21 +48,41 @@ The bridge is built on the [Viewtron Python SDK](/docs/getting-started/python-sd
 
 ![Viewtron LPR camera in Home Assistant](https://videos.cctvcamerapros.com/wp-content/files/home-assistant-LPR-camera.jpg)
 
-When a license plate is detected, two sensors appear on the Viewtron device in Home Assistant:
+When a license plate is detected, four entities appear on the Viewtron device in Home Assistant:
 
-| Sensor | What It Shows | Example |
-|--------|---------------|---------|
-| **License Plate** | The plate number that was read | `ABC1234` |
-| **Plate Status** | Whether the plate is in the camera's database | `Authorized` |
+| Entity | Entity ID | What It Shows | Example |
+|--------|-----------|---------------|---------|
+| **License Plate** | `sensor.viewtron_<camera>_license_plate` | The plate number that was read | `ABC1234` |
+| **Status** | `sensor.viewtron_<camera>_status` | The plate's group in the camera's or NVR's plate database | `whiteList` |
+| **Overview** | `image.viewtron_<camera>_overview` | Full scene image at the time of the plate read | JPEG image |
+| **Plate** | `image.viewtron_<camera>_plate` | Cropped close-up of the license plate | JPEG image |
 
-The **Plate Status** sensor has four possible values:
+### How Entity IDs Are Named
 
-| Status | Meaning |
-|--------|---------|
-| **Authorized** | Plate is on the camera's allow list |
-| **Blacklisted** | Plate is on the camera's block list |
-| **Temporary** | Plate is on the temporary list and within its valid date range |
-| **Unknown** | Plate is not in the camera's database, or a listed plate with an expired date range |
+Home Assistant builds each entity ID from the device name. The bridge names the device "Viewtron" plus the camera name, or uses the camera name as-is if it already starts with "Viewtron". If the event does not include a camera name, the device is named "Viewtron" plus the camera's IP address. For example:
+
+| Camera | Device name in HA | Entity IDs |
+|--------|-------------------|------------|
+| Named `Viewtron IPC` | Viewtron IPC | `sensor.viewtron_ipc_license_plate`, `sensor.viewtron_ipc_status` |
+| Named `Driveway` | Viewtron Driveway | `sensor.viewtron_driveway_license_plate`, `sensor.viewtron_driveway_status` |
+| No name, IP `192.168.0.50` | Viewtron 192.168.0.50 | `sensor.viewtron_192_168_0_50_license_plate`, `sensor.viewtron_192_168_0_50_status` |
+
+The examples on this page use `viewtron_ipc`. Check **Settings > Devices & Services > MQTT** for the exact entity IDs on your system.
+
+### Plate Status Values
+
+The **Status** sensor shows the plate group exactly as the camera or NVR reports it. Values are case-sensitive, so `whiteList` in an automation will not match `Whitelist` or `whitelist`.
+
+**IP camera (IPC direct):**
+
+| Status | Camera UI label | Meaning |
+|--------|-----------------|---------|
+| `whiteList` | Allow list | Plate is on the camera's allow list |
+| `blackList` | Block list | Plate is on the camera's block list |
+| `temporaryList` | Temporary vehicle | Plate is on the temporary list and within its valid date range |
+| `Unknown` | (none) | Plate is not in the camera's database, or a listed plate with an expired date range |
+
+**NVR:** plate groups are user-defined. You create the groups on the NVR and name them whatever you want (for example "Residents" or "Delivery"). The Status sensor shows the group name the plate belongs to, or `Unknown` if the plate is not in any group. Use your own group names, spelled exactly as on the NVR, in your automations.
 
 :::note Date Range Validation
 Date range validation applies to all list types — not just temporary plates. An allow list or block list plate with an expired end date will also come through as Unknown. The camera validates dates internally and simply omits the `vehicleListType` field when a plate is outside its valid range.
@@ -72,16 +92,16 @@ Date range validation applies to all list types — not just temporary plates. A
 
 | Detection | HA Entity | Status |
 |-----------|-----------|--------|
-| **[License Plate Recognition (LPR)](/docs/applications/license-plate-recognition-camera-api)** | `sensor.viewtron_*_plate` + `sensor.viewtron_*_plate_status` | Tested and supported |
-| **[Human / Vehicle Detection](/docs/applications/human-detection-intrusion-api)** | `binary_sensor.viewtron_*_intrusion` | Coming soon |
-| **[Face Detection](/docs/applications/face-detection-recognition-api)** | `binary_sensor.viewtron_*_face` | Coming soon |
-| **[Object Counting](/docs/applications/people-counting-traffic-analytics-api)** | `sensor.viewtron_*_counting` | Coming soon |
+| **[License Plate Recognition (LPR)](/docs/applications/license-plate-recognition-camera-api)** | `sensor.viewtron_<camera>_license_plate` + `sensor.viewtron_<camera>_status`, plus `image.viewtron_<camera>_overview` and `image.viewtron_<camera>_plate` | Tested and supported |
+| **[Human / Vehicle Detection](/docs/applications/human-detection-intrusion-api)** | `binary_sensor.viewtron_<camera>_intrusion` | Coming soon |
+| **[Face Detection](/docs/applications/face-detection-recognition-api)** | `binary_sensor.viewtron_<camera>_face_detected` | Coming soon |
+| **[Object Counting](/docs/applications/people-counting-traffic-analytics-api)** | `sensor.viewtron_<camera>_object_count` | Coming soon |
 
 All detection types use the same bridge architecture. Entities auto-discover via MQTT — no manual YAML configuration in Home Assistant.
 
 ## What You Can Automate
 
-- **Gate and garage access** — open gates and garage doors when an authorized license plate is recognized
+- **Gate and garage access** — open gates and garage doors when an allow list or temporary plate is recognized
 - **Unknown vehicle alerts** — send a phone notification with the plate number when an unrecognized vehicle arrives
 - **Person detection lighting** — turn on driveway or porch lights when a person is detected at night
 - **Intrusion alarms** — trigger sirens or alarm panels when someone enters a restricted zone after hours
@@ -165,14 +185,21 @@ The first time a camera sends an event, a **Viewtron** device appears automatica
 
 ## Example Automations
 
-**Open garage door for authorized plates:**
+Replace `viewtron_ipc` with your camera's part of the entity ID (see [How Entity IDs Are Named](#how-entity-ids-are-named)).
+
+The plate examples trigger on every plate read, then check the status in a condition. The `timestamp` attribute on the Status sensor changes with each read, so the trigger fires even when the status stays the same. A plain `to: "Unknown"` or `to: "whiteList"` trigger only fires when the status changes, so it would miss the second of two unknown vehicles in a row, or a second allow list car right after the first.
+
+**Open garage door for allow list and temporary plates:**
 
 ```yaml
-- alias: "Open garage for authorized plates"
+- alias: "Open garage for allowed plates"
   trigger:
     - platform: state
-      entity_id: sensor.viewtron_ipc_plate_status
-      to: "Authorized"
+      entity_id: sensor.viewtron_ipc_status
+      attribute: timestamp
+  condition:
+    - condition: template
+      value_template: "{{ states('sensor.viewtron_ipc_status') in ['whiteList', 'temporaryList'] }}"  # NVR: use your group names
   action:
     - service: cover.open_cover
       target:
@@ -185,13 +212,17 @@ The first time a camera sends an event, a **Viewtron** device appears automatica
 - alias: "Alert on unknown vehicle"
   trigger:
     - platform: state
-      entity_id: sensor.viewtron_ipc_plate_status
-      to: "Unknown"
+      entity_id: sensor.viewtron_ipc_status
+      attribute: timestamp
+  condition:
+    - condition: state
+      entity_id: sensor.viewtron_ipc_status
+      state: "Unknown"
   action:
     - service: notify.mobile_app_phone
       data:
         title: "Unknown vehicle detected"
-        message: "Plate {{ states('sensor.viewtron_ipc_plate') }} detected"
+        message: "Plate {{ states('sensor.viewtron_ipc_license_plate') }} detected"
 ```
 
 **Turn on lights when person detected at night:**
@@ -231,7 +262,7 @@ Home Assistant's built-in [ONVIF integration](https://www.home-assistant.io/inte
 |-----------|-------|---------------------|
 | Live video stream | Yes | Use ONVIF for video |
 | Basic motion detection | Yes | Yes |
-| License plate recognition | No | Yes — plate number, authorization status, plate image |
+| License plate recognition | No | Yes — plate number, plate group, plate image |
 | Human vs. vehicle classification | No | Yes — AI classifies person, car, motorcycle |
 | Face detection | No | Yes — with attributes (age, sex, glasses, mask on NVR) |
 | Vehicle attributes | No | Yes — brand, color, type, model (NVR v2.0) |
@@ -252,8 +283,9 @@ from viewtron import ViewtronCamera
 
 camera = ViewtronCamera("192.168.0.20", "admin", "password")
 
-# Add an authorized plate
-camera.add_plate("ABC1234", owner="Mike", list_type="whiteList")
+# Add a plate (group_id "1", the default, is the allow list)
+camera.add_plate("ABC1234")
+camera.modify_plate("ABC1234", owner="Mike")
 
 # Query the database
 plates = camera.get_plates()
