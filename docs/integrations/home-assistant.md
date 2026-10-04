@@ -96,8 +96,15 @@ Date range validation applies to all list types — not just temporary plates. A
 | **[Human / Vehicle Detection](/docs/applications/human-detection-intrusion-api)** | `binary_sensor.viewtron_<camera>_intrusion` | Coming soon |
 | **[Face Detection](/docs/applications/face-detection-recognition-api)** | `binary_sensor.viewtron_<camera>_face_detected` | Coming soon |
 | **[Object Counting](/docs/applications/people-counting-traffic-analytics-api)** | `sensor.viewtron_<camera>_object_count` | Coming soon |
+| **Object Detection (video metadata)** | `binary_sensor.viewtron_<camera>_object_detected` | Coming soon |
 
 All detection types use the same bridge architecture. Entities auto-discover via MQTT — no manual YAML configuration in Home Assistant.
+
+How the other entities behave (bridge 1.1.0 and later):
+
+- **Binary sensors** (Intrusion, Face Detected, Object Detected) turn **on** with each event and back **off** 30 seconds after the last one. Change this with `off_delay` in `config.yaml`. The event details, including `target_type` (`person`, `car`, `motor`), are attributes.
+- **Object Count** is a number: how many objects the camera has counted since the bridge started, with a per-type breakdown in the `count_by_type` attribute. It uses `state_class: total_increasing`, so Home Assistant statistics and utility meters treat a bridge restart as a reset. Use a utility meter for daily or hourly counts.
+- **Images:** events with pictures create their own image entities: `image.viewtron_<camera>_intrusion_overview` / `_intrusion_target`, `_face_overview` / `_face_target`, `_counting_overview` / `_counting_target` and `_object_overview` / `_object_target`. They are separate from the LPR **Overview** and **Plate** images, so a person or counting crop never replaces the last plate.
 
 ## What You Can Automate
 
@@ -113,13 +120,27 @@ All detection types use the same bridge architecture. Entities auto-discover via
 
 ### Docker (Recommended)
 
+The Docker install uses the published image, so there is nothing to clone or build. You need Docker and an MQTT broker (see [MQTT Broker](#mqtt-broker) below if you don't have one).
+
 ```bash
 docker run -d --name viewtron-bridge --restart unless-stopped \
   --network host \
   -e BRIDGE_PORT=5002 \
   -e MQTT_BROKER=localhost \
-  ghcr.io/mikehaldas/viewtron-bridge
+  ghcr.io/mikehaldas/viewtron-bridge:latest
 ```
+
+The container restarts on boot. To update later, pull the new image and recreate the container:
+
+```bash
+docker pull ghcr.io/mikehaldas/viewtron-bridge:latest
+docker rm -f viewtron-bridge
+# then run the same docker run command again
+```
+
+To build the image yourself instead, run `docker build -t viewtron-bridge https://github.com/mikehaldas/viewtron-home-assistant.git#main:viewtron-bridge` and use `viewtron-bridge` as the image name in the `docker run` command.
+
+Optional environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -140,10 +161,20 @@ source venv/bin/activate
 pip install -r requirements.txt
 cp config.yaml.example config.yaml
 # Edit config.yaml with your MQTT broker address
-python3 viewtron_bridge.py
+python3 viewtron-bridge/viewtron_bridge.py
 ```
 
-For boot persistence, create a systemd service — see the [full setup guide](https://github.com/mikehaldas/viewtron-home-assistant#option-b-manual-install) on GitHub.
+Run the bridge from the `viewtron-home-assistant` folder, where your `config.yaml` is. To start it again later:
+
+```bash
+cd viewtron-home-assistant
+source venv/bin/activate
+python3 viewtron-bridge/viewtron_bridge.py
+```
+
+The bridge prints the config file it loaded on startup. It looks for `config.yaml` in the current folder first, then in the repo folder. To keep the config somewhere else, pass it explicitly with `--config /path/to/config.yaml` (or set `VIEWTRON_BRIDGE_CONFIG`). The `viewtron-bridge/config.yaml` file is the Home Assistant add-on manifest, not a bridge config, and the bridge skips it.
+
+To start the bridge on boot, create a systemd service. See the [full setup guide](https://github.com/mikehaldas/viewtron-home-assistant#option-b-manual-install) on GitHub.
 
 ### MQTT Broker
 
@@ -312,7 +343,7 @@ All Viewtron products are NDAA compliant.
 
 - **GitHub:** [viewtron-home-assistant](https://github.com/mikehaldas/viewtron-home-assistant) — bridge source code, Docker image, example automations
 - **Python SDK:** [viewtron on PyPI](https://pypi.org/project/viewtron/) — `pip install viewtron`
-- **Docker Image:** `ghcr.io/mikehaldas/viewtron-bridge`
+- **Docker Image:** `ghcr.io/mikehaldas/viewtron-bridge:latest`
 
 ## Related Documentation
 
