@@ -180,7 +180,7 @@ To start the bridge on boot, create a systemd service. See the [full setup guide
 
 The bridge requires an MQTT broker. Most Home Assistant users already have Mosquitto running.
 
-**Home Assistant OS:** Settings > Add-ons > Add-on Store > search "Mosquitto broker" > Install > Start.
+**Home Assistant OS:** Settings > Apps (on Home Assistant versions before 2026.2 this was Settings > Add-ons > Add-on Store) > search "Mosquitto broker" > Install > Start.
 
 **Docker / Linux:** Run Mosquitto in Docker:
 
@@ -202,13 +202,18 @@ See the [application guides](/docs/category/applications) for detection-specific
 
 ### 2. Point HTTP POST at the Bridge
 
-In the camera's web interface, go to **Network > HTTP POST > Edit > Add**:
+In the camera's web interface, open **Network**. The Network landing page lists this feature as **HTTP POST**. Once opened, the breadcrumb is **Network > Advanced**, and the tab or edit dialog may be labeled **HTTP Notification** or **HTTP POST**, depending on the camera firmware. On an NVR, use **Network > HTTP POST** (or **Integration > HTTP POST** in the sidebar).
 
-- **Server IP:** the machine running the Viewtron bridge
-- **Port:** `5002` (or your configured `BRIDGE_PORT`)
+Then click **Edit > Add** and configure:
+
+- **Push Protocol Version:** **V1** (required for reliable images in Home Assistant; V2 may send alarm events without pictures)
+- **Domain/IP:** the machine running the Viewtron bridge
+- **Server Port:** `5002` (or your configured `BRIDGE_PORT`)
 - **Path:** `/API`
+- **Smart Alarm Data:** check **Smart event data**, **Original picture**, and **Target picture**
+- **Smart Alarm Type:** the detection types you want (for LPR, License Plate Detection)
 
-Select the detection types you want forwarded to Home Assistant and click Save.
+Click Save, then reboot the camera after the first HTTP POST setup. For the full settings table and screenshots, see the [viewtron-home-assistant README](https://github.com/mikehaldas/viewtron-home-assistant#4-configure-the-http-post-webhook-server) or the [HTTP POST Setup guide](/docs/getting-started/http-post-setup).
 
 ### 3. Verify in Home Assistant
 
