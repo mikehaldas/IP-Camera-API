@@ -10,6 +10,8 @@ sidebar_position: 5
 
 This page explains how the five httpPostV2 data types interact when subscribed together, and how to choose the right combination for your use case.
 
+The element name depends on firmware: `subscribeDateType` in the 5.1.x sample, `subDataType` on 5.3.1 / v2.1. The values (`alarmStatus`, `traject`, `smartData`, `sourceImage`, `targetImage`) are the same.
+
 ## How Data Types Work Together
 
 Each data type generates **separate HTTP Posts**. When a detection event occurs, the camera sends posts in this order:
@@ -88,6 +90,18 @@ IPC IP-AX8D, March 29, 2026, all five data types subscribed:
   <item>sourceImage</item>
   <item>targetImage</item>
 </subscribeDateType>
+```
+
+On 5.3.1 / v2.1 the same list uses `subDataType`:
+
+```xml
+<subDataType type="list" count="5">
+  <item>alarmStatus</item>
+  <item>traject</item>
+  <item>smartData</item>
+  <item>sourceImage</item>
+  <item>targetImage</item>
+</subDataType>
 ```
 
 :::tip Application Guides

@@ -12,17 +12,25 @@ sidebar_position: 4
 For a complete walkthrough with code examples, see the [License Plate Recognition](/docs/applications/license-plate-recognition-camera-api) application guide.
 :::
 
-This section covers LPR configuration and plate database management:
+This section covers LPR configuration and plate database management.
 
-- **GetSmartVehicleConfig** — read LPR detection settings
+**API 1.x–2.0** uses `GetSmartVehicleConfig`, `AddVehiclePlate`, and `GetVehiclePlate`. On v2.1 cameras those commands, and `GetVehicleConfig`, return HTTP 400 with `errorCode="1"` (Invalid Request).
+
+**API 2.1** uses the commands below. Verified on a camera running 5.3.1 firmware:
+
+- **GetSmartLicensePlateConfig / SetSmartLicensePlateConfig** — LPR detection settings
+- **GetLicensePlateGroups** — plate group IDs and names
 - **AddLicensePlates** — add plates to the database
 - **GetLicensePlates** — query the plate database
 - **ModifyLicensePlate** — update plate details
 - **DeleteLicensePlate** — remove a plate from the database
+- **SearchSnapLicensePlates / DownloadSnapLicensePlate** — plate snapshot search (request format to be documented)
 
 ---
 
 ## GetSmartVehicleConfig
+
+> **Applies to API 1.x–2.0 firmware.** On v2.1 cameras `GetSmartVehicleConfig`, `AddVehiclePlate`, `GetVehiclePlate`, and `GetVehicleConfig` return HTTP 400 with `errorCode="1"` (Invalid Request). Use `GetSmartLicensePlateConfig` and the group-based plate commands below.
 
 Retrieves license plate recognition configuration, including detection sensitivity, supported region, deduplication settings, and detection zone.
 
@@ -118,9 +126,46 @@ API v2.0 adds `dedupMode` (deduplication with configurable interval) and `plateM
 
 ---
 
+## GetSmartLicensePlateConfig / SetSmartLicensePlateConfig
+
+v2.1 LPR detection settings. `GetSmartLicensePlateConfig` reads the detection `switch`, `direction` (for example `noLimit`), boundary area, and mask areas. The matching Set command is `SetSmartLicensePlateConfig`.
+
+| Field | Value |
+|-------|-------|
+| **Endpoint (Get)** | `/GetSmartLicensePlateConfig` |
+| **Endpoint (Set)** | `/SetSmartLicensePlateConfig` |
+| **Method (Get)** | `POST` or `GET` |
+| **Method (Set)** | `POST` |
+| **Products** | IPC |
+
+---
+
 ## Plate Database Management
 
-Manage the on-camera license plate database — add, query, update, and delete plates. All endpoints use Basic Authentication.
+Manage the on-camera license plate database — add, query, update, and delete plates. All endpoints use Basic Authentication. On v2.1, read group IDs from `GetLicensePlateGroups` before calling the plate commands. Do not hard-code them.
+
+### GetLicensePlateGroups
+
+Returns the plate groups on the camera and the numeric id for each name.
+
+| Field | Value |
+|-------|-------|
+| **Endpoint** | `/GetLicensePlateGroups` |
+| **Method** | `POST` or `GET` |
+| **Auth** | Basic |
+| **Products** | IPC |
+
+On a camera running 5.3.1 firmware, `GetLicensePlateGroups` returned:
+
+| groupId | name |
+|---------|------|
+| 1 | temporaryList |
+| 2 | whiteList |
+| 3 | blackList |
+
+Read group IDs from `GetLicensePlateGroups`. Do not hard-code them. The `whiteList` group is not group 1.
+
+`strangerList` appears as a plate-match alarm option. It is not a database group.
 
 ### Plate Status in HTTP POST Events
 
@@ -168,7 +213,7 @@ Add one or more plates to the camera's database.
         <item>
             <index>1</index>
             <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
-            <groupId><![CDATA[1]]></groupId>
+            <groupId><![CDATA[2]]></groupId>
         </item>
     </licensePlates>
 </config>
@@ -180,7 +225,7 @@ Add one or more plates to the camera's database.
 |-----------|------|-------------|
 | `index` | integer | Item index (1-based) |
 | `licensePlateNumber` | string (CDATA) | License plate number |
-| `groupId` | string (CDATA) | Group ID (`1` = default group) |
+| `groupId` | string (CDATA) | Group ID from `GetLicensePlateGroups` (for example `2` = whiteList). Do not hard-code group IDs. |
 
 #### Response (Success)
 
@@ -212,7 +257,7 @@ curl -u admin:password -X POST http://CAMERA_IP/AddLicensePlates \
         <item>
             <index>1</index>
             <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
-            <groupId><![CDATA[1]]></groupId>
+            <groupId><![CDATA[2]]></groupId>
         </item>
     </licensePlates>
 </config>'
@@ -239,7 +284,7 @@ Query the plate database with pagination.
     <searchFilter>
         <maxResult>10</maxResult>
         <resultOffset>1</resultOffset>
-        <groupId><![CDATA[1]]></groupId>
+        <groupId><![CDATA[2]]></groupId>
     </searchFilter>
 </config>
 ```
@@ -250,7 +295,7 @@ Query the plate database with pagination.
 |-----------|------|-------------|
 | `maxResult` | integer | Maximum number of results to return |
 | `resultOffset` | integer | Starting position (1-based — first plate is offset `1`) |
-| `groupId` | string (CDATA) | Group ID to query (`1` = default group) |
+| `groupId` | string (CDATA) | Group ID from `GetLicensePlateGroups` (for example `2` = whiteList). Do not hard-code group IDs. |
 
 #### Response
 
@@ -260,7 +305,7 @@ Query the plate database with pagination.
     <licensePlates type="list" total="2" count="2">
         <item>
             <licensePlateNumber type="string"><![CDATA[ABC1234]]></licensePlateNumber>
-            <groupId type="string"><![CDATA[1]]></groupId>
+            <groupId type="string"><![CDATA[2]]></groupId>
             <beginTime type="string"><![CDATA[2026-04-07 09:28:45]]></beginTime>
             <endTime type="string"><![CDATA[2037-12-30 10:59:59]]></endTime>
             <licensePlateType type="string"><![CDATA[]]></licensePlateType>
@@ -287,8 +332,8 @@ Query the plate database with pagination.
 
 #### Notes
 
-- `resultOffset` is 1-based. Using `0` returns a Range Error.
-- If no plates exist, the response returns `errorCode="20"` with `errorDesc="Resources Not Exist"`.
+- `resultOffset` is 1-based. Offset `0` returns errorCode 16 (Range Error).
+- An empty result returns errorCode 20 (Resources Not Exist).
 
 ---
 
@@ -310,7 +355,7 @@ Update an existing plate's details (owner, phone, validity dates).
 <config version="2.1.0" xmlns="http://www.ipc.com/ver10">
     <licensePlate>
         <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
-        <groupId><![CDATA[1]]></groupId>
+        <groupId><![CDATA[2]]></groupId>
         <carOwner type="string"><![CDATA[John Doe]]></carOwner>
         <telephone type="string"><![CDATA[555-123-4567]]></telephone>
     </licensePlate>
@@ -322,7 +367,7 @@ Update an existing plate's details (owner, phone, validity dates).
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `licensePlateNumber` | string (CDATA) | Yes | Plate number to modify (must already exist) |
-| `groupId` | string (CDATA) | Yes | Group the plate belongs to |
+| `groupId` | string (CDATA) | Yes | Group ID from `GetLicensePlateGroups` (for example `2` = whiteList). Do not hard-code group IDs. |
 | `carOwner` | string (CDATA) | No | Updated owner name |
 | `telephone` | string (CDATA) | No | Updated phone number |
 
@@ -358,7 +403,7 @@ Delete a plate from the database.
 <config version="2.1.0" xmlns="http://www.ipc.com/ver10">
     <deleteAction>
         <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
-        <groupId><![CDATA[1]]></groupId>
+        <groupId><![CDATA[2]]></groupId>
     </deleteAction>
 </config>
 ```
@@ -368,7 +413,7 @@ Delete a plate from the database.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `licensePlateNumber` | string (CDATA) | Plate number to delete |
-| `groupId` | string (CDATA) | Group the plate belongs to |
+| `groupId` | string (CDATA) | Group ID from `GetLicensePlateGroups` (for example `2` = whiteList). Do not hard-code group IDs. |
 
 #### Response (Success)
 
@@ -376,6 +421,12 @@ Delete a plate from the database.
 <?xml version="1.0" encoding="UTF-8"?>
 <config version="2.1.0" xmlns="http://www.ipc.com/ver10" status="success" errorCode="0" errorDesc="No Error"/>
 ```
+
+---
+
+## SearchSnapLicensePlates / DownloadSnapLicensePlate
+
+`SearchSnapLicensePlates` and `DownloadSnapLicensePlate` are available on v2.1. Request format to be documented.
 
 ---
 
