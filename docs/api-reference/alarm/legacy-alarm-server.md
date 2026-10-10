@@ -56,6 +56,10 @@ A separate, older alarm server system. **IPC only.** This operates independently
 `SetAlarmServerConfig` returned error 499 in testing. Use `SetHttpPostConfig` instead (see [HTTP POST Webhook Configuration](http-post-webhook-config.md)).
 :::
 
+:::info v2.1
+`GetAlarmServerConfig` / `SetAlarmServerConfig` are present on v2.1 cameras and are a separate on/off switch from HTTP POST. The schema has server address, port, and heartbeat settings, and no URL path element. The default port is 8010.
+:::
+
 ---
 
 ## SendAlarmStatus

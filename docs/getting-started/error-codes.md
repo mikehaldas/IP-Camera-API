@@ -55,6 +55,7 @@ These additional codes are available on v2.0 firmware.
 | 17 | **Service Not Enabled** — API service not enabled |
 | 18 | **Modification Not Allowed** — change would cause system restart |
 | 19 | **Over Specifications** — exceeding system limits |
+| 20 | **Resources Not Exist** — The query matched nothing (for example, an empty plate database from GetLicensePlates) |
 | 79 | **Internal Error** — device processing error |
 | 80 | **Upgrade Error** |
 | 81 | **Upgrade Version Same** |

@@ -1,7 +1,7 @@
 ---
-title: "API Versions — v1.9 and v2.0"
+title: "API Versions — v1.9, v2.0, and v2.1"
 sidebar_label: "API Versions"
-description: "Viewtron IP cameras ship with v1.9 or v2.0 firmware. The HTTP API is 95% identical between versions. Learn the differences and how to detect your version."
+description: "Viewtron IP cameras ship with API 1.x, 2.0, or 2.1. The HTTP API is 95% identical between versions. Learn the differences and how to detect your version."
 keywords:
   - viewtron api version
   - camera firmware api
@@ -11,7 +11,7 @@ sidebar_position: 3
 
 # API Versions
 
-Viewtron devices ship with one of two firmware generations. The HTTP API protocol is approximately **95% identical** between them. This documentation covers both versions as a unified reference, with inline callouts where they differ.
+Viewtron devices ship with one of several API generations (1.x, 2.0, 2.1). The HTTP API protocol is approximately **95% identical** between them. This documentation covers these generations as a unified reference, with inline callouts where they differ.
 
 ## Detecting Your Version
 
@@ -21,6 +21,8 @@ Send a `GetDeviceInfo` request. The response includes an `apiVersion` field:
 <apiVersion type="string"><![CDATA[2.0.0]]></apiVersion>
 ```
 
+`apiVersion` may read `2.0.0` or `2.1.0`. Treat any `2.x` value as the v2 family, then call [`GetSupportedAPIs`](/docs/api-reference/system/get-supported-apis) to see which commands that device actually has. Commands differ between 2.0 and 2.1 firmware (see [What changed in v2.1](#what-changed-in-v21)).
+
 If there is no `apiVersion` field, use `GetDeviceDetail` — the `apiVersion` appears in the `property` block. Devices without either field are running the v1.x protocol.
 
 ## Firmware-to-Protocol Mapping
@@ -29,8 +31,11 @@ If there is no `apiVersion` field, use `GetDeviceDetail` — the `apiVersion` ap
 |----------|-------------|----------------------|
 | IPC 5.2 or earlier | v1.9 (v1.0 / v1.7) | `1.0` or `1.7` |
 | IPC 5.3 or later | v2.0.0 | `2.0.0` |
+| IPC 5.3.1 or later (2026 builds) | v2.1.0 | `2.1.0` |
 | NVR 1.4.12 or earlier | v1.9 | `1.0` or `1.7` |
 | NVR 1.4.13 or later | v2.0.0 | `2.0.0` |
+
+Some 5.3.x builds report `2.0.0`. Always read `apiVersion`.
 
 ## What Changed in v2.0
 
@@ -43,7 +48,7 @@ If there is no `apiVersion` field, use `GetDeviceDetail` — the `apiVersion` ap
 | [GetAudioStreamConfig](/docs/api-reference/image/get-audio-stream-config) | Audio stream configuration |
 | [GetPassLineCountStatistics](/docs/api-reference/smart-detection/line-counting-config) | Current entrance/exit counts |
 | [GetMeasureTemperatureConfig](/docs/api-reference/smart-detection/thermal-temperature-config) | Thermal camera temperature measurement |
-| [GetVehiclePlate](/docs/api-reference/smart-detection/license-plate-recognition-config) | Query license plate database |
+| [GetVehiclePlate](/docs/api-reference/smart-detection/license-plate-recognition-config) | Query license plate database; replaced by `GetLicensePlates` on v2.1 |
 
 ### Renamed Commands
 
@@ -71,6 +76,17 @@ The HTTP POST webhook format differs significantly between IPC (v1.x) and NVR (v
 - Timestamp precision: v1.x uses milliseconds, v2.0 uses microseconds
 
 See the [Webhook Events](/docs/api-reference/events/webhook-overview) section for full format details.
+
+## What Changed in v2.1
+
+Verified on a camera running 5.3.1 firmware:
+
+- `GetDeviceInfo` reports `apiVersion` `2.1.0` and `httpPostVersion` `2.1.0`. Responses use config version `2.1.0`.
+- The license plate database uses group-based commands: `GetLicensePlateGroups`, `GetLicensePlates`, `AddLicensePlates`, `ModifyLicensePlate`, `DeleteLicensePlate`. LPR detection settings use `GetSmartLicensePlateConfig` / `SetSmartLicensePlateConfig`. Plate snapshot search uses `SearchSnapLicensePlates` / `DownloadSnapLicensePlate`. See [License Plate Recognition configuration](/docs/api-reference/smart-detection/license-plate-recognition-config).
+- `GetVehiclePlate`, `AddVehiclePlate`, `GetSmartVehicleConfig`, and `GetVehicleConfig` return HTTP 400 with `errorCode="1"` (Invalid Request) on v2.1.
+- `GetHttpPostConfig` / `SetHttpPostConfig` are not part of the public API on v2.1. Configure HTTP POST in the camera's web interface.
+- In the camera's HTTP POST V2 settings, the data-type list is named `subDataType` (earlier firmware: `subscribeDateType`).
+- The v2.1 HTTP POST event format is being verified. See [IPC HTTP POST Format (v2.1)](/docs/api-reference/events/ipc-http-post-format-v21).
 
 ## Using the Python Library
 

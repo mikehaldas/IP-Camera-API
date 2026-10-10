@@ -12,6 +12,8 @@ Viewtron devices can push real-time AI detection events to your HTTP server as w
 
 1. **IP Camera (direct)** -- The camera sends posts directly to your server using the IPC v1.x XML format (config version `1.0` or `1.7`). Supports the full httpPostV2 subscription system including real-time `traject` tracking.
 
+   Cameras on v2.1 firmware report `httpPostVersion` 2.1.0, and their direct posts may use a newer format. See [IPC HTTP POST Format (v2.1)](./ipc-http-post-format-v21.md).
+
 2. **NVR (forwarded)** -- The NVR receives events from cameras on its PoE ports and forwards them to your server using the NVR v2.0 XML format (config version `2.0.0`). Does **not** support `traject`.
 
 ## Recommended Setup
@@ -45,6 +47,7 @@ The two sources use different XML formats. See the dedicated pages for each:
 
 - [IPC Event Format (v1.x)](./ipc-event-format.md) -- Direct camera posts
 - [NVR Event Format (v2.0)](./nvr-event-format.md) -- NVR-forwarded posts
+- [IPC HTTP POST Format (v2.1)](./ipc-http-post-format-v21.md) -- Direct camera posts on v2.1 firmware (format still being verified)
 
 ## Section Guide
 
@@ -57,6 +60,7 @@ The two sources use different XML formats. See the dedicated pages for each:
 | [traject Tracking](./real-time-target-tracking-traject.md) | Continuous real-time target position data |
 | [Image Data](./image-data-handling.md) | Base64 image encoding, source vs target images |
 | [Timestamps](./timestamp-handling.md) | Timestamp formats across IPC and NVR |
+| [IPC HTTP POST (v2.1)](./ipc-http-post-format-v21.md) | Placeholder for direct camera posts on v2.1 firmware |
 
 :::tip Application Guides
 For step-by-step setup instructions, see [Webhook Event Notification API](/docs/applications/webhook-event-notification-api) in the Applications section.

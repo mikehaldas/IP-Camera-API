@@ -19,7 +19,7 @@ Retrieves the list of all API endpoints supported by the device.
 | **Products** | IPC, NVR |
 | **Channel ID** | N/A |
 
-:::caution v2.0 Only
+:::caution v2.x only (2.0 and 2.1)
 This command does not exist on v1.9 firmware.
 :::
 
@@ -54,5 +54,5 @@ This command does not exist on v1.9 firmware.
 ## Notes
 
 - Use the API names in each `<item>` to look up commands in this documentation.
-- The `count` attribute indicates the total number of supported endpoints on the device.
-- This is the recommended way to discover device capabilities at runtime on v2.0 firmware.
+- The `count` attribute may not equal the number of `<item>` elements, and a name can appear more than once. De-duplicate the names before use. Verified on a camera running 5.3.1 firmware, `count` was 111 and the list contained 90 unique names, with duplicates.
+- This is the recommended way to check whether a command exists before calling it. Command sets differ by device type and firmware (for example, plate database commands on v2.1 cameras).

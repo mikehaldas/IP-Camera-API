@@ -23,6 +23,10 @@ The NVR also has an HTTP POST system configured through its web interface. The N
 
 > Tested: IPC v1.9 (firmware 5.1.4.0, API version 1.7)
 
+:::caution v2.1 firmware
+`GetHttpPostConfig` and `SetHttpPostConfig` return HTTP 400 with `errorCode="1"` (Invalid Request) and are not listed by `GetSupportedAPIs`. Set up HTTP POST in the camera web interface (Network → HTTP POST, or similar). The commands below apply to firmware that lists them.
+:::
+
 ---
 
 ## GetHttpPostConfig
@@ -78,6 +82,8 @@ Retrieves the current httpPost and httpPostV2 configuration.
 </config>
 ```
 
+On newer firmware the v1 `httpPost` block has no `URL` element; posts go to the server address and port only.
+
 ### httpPost (v1) Parameters
 
 | Parameter | Type | Description |
@@ -103,7 +109,7 @@ Retrieves the current httpPost and httpPostV2 configuration.
 | `url.authentication` | string | Authentication type (`none` or other) |
 | `heatBeatSwitch` | boolean | Enable keepalive heartbeat |
 | `keepaliveTimeval` | uint32 | Keepalive interval in seconds (30-120) |
-| `subscribeDateType` | list | Data types to include in posts (see table below) |
+| `subscribeDateType` / `subDataType` | list | Data types to include in posts. The element name is `subscribeDateType` on 5.1.x firmware and `subDataType` on 5.3.1 / v2.1. Values are the same (see table below). |
 | `subscriptionEvents` | list | Detection event types to subscribe to (see list below) |
 
 ---
@@ -190,12 +196,17 @@ The `subscriptionEvents` field controls which detection types trigger posts to t
 | `PVD` | Parking violation detection |
 | `LOITER` | Loitering detection |
 | `ASD` | Audio sound detection |
+| `VEHICLE` | License plate / vehicle detection |
+
+The list varies by camera model and firmware. Read the camera's own options in its web interface rather than assuming every value is available. For example, a v2.1 LPR camera offers `ALL`, `MOTION`, `SENSOR`, `AVD`, `VEHICLE`.
 
 ---
 
-## httpPostV2 Data Types (subscribeDateType)
+## httpPostV2 Data Types (`subscribeDateType` / `subDataType`)
 
-The `subscribeDateType` field controls what data is included in each post:
+The element name depends on firmware: `subscribeDateType` in the 5.1.x sample above, `subDataType` on 5.3.1 / v2.1. The values (`alarmStatus`, `traject`, `smartData`, `sourceImage`, `targetImage`) are the same.
+
+The data-type list controls what is included in each post:
 
 | Data Type | GUI Label | Description | Post Frequency | Post Size |
 |-----------|-----------|-------------|----------------|-----------|
@@ -216,5 +227,5 @@ The `subscribeDateType` field controls what data is included in each post:
 - httpPostV2 supports up to **3 URLs** (`maxCount="3"`), each with independent event and data type subscriptions. This lets you route different event types or data to different servers.
 - `keepaliveTimeval` range is **30-120 seconds**.
 - Both httpPost v1 and httpPostV2 can be set in a single request by including both elements in the XML body.
-- For real-time tracking data, subscribe to `traject` in the `subscribeDateType`. See the [traject documentation](/docs/api-reference/events/real-time-target-tracking-traject) for details on the tracking data format.
+- For real-time tracking data, subscribe to `traject` in `subscribeDateType` (or `subDataType` on 5.3.1 / v2.1). See the [traject documentation](/docs/api-reference/events/real-time-target-tracking-traject) for details on the tracking data format.
 - The NVR configures its HTTP POST system through the web interface, not through this API endpoint. The NVR sends events in v2.0 XML format and does not support `traject`.

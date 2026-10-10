@@ -19,7 +19,7 @@ Retrieves basic information about the device including model, firmware version, 
 | **Products** | IPC, NVR |
 | **Channel ID** | N/A |
 
-> Tested: IPC v1.9 (firmware 5.1.4.0), NVR v2.0 (firmware 1.4.13)
+> Tested: IPC v1.9 (firmware 5.1.4.0), NVR v2.0 (firmware 1.4.13), IPC v2.1 (firmware 5.3.1)
 
 ## Response Fields
 
@@ -27,7 +27,8 @@ Retrieves basic information about the device including model, firmware version, 
 |-------|------|-------------|
 | `deviceName` | string | User-assigned device name |
 | `deviceDescription` | string | Device type descriptor |
-| `apiVersion` | string | API protocol version (v2.0 only) |
+| `apiVersion` | string | API protocol version (`2.0.0` or `2.1.0`; absent on v1.x) |
+| `httpPostVersion` | string | HTTP POST protocol version (v2.0 and v2.1) |
 | `softwareVersion` | string | Firmware version string |
 | `softwareBuildDate` | string | Firmware build date |
 | `kernelVersion` | string | Kernel version |
@@ -145,4 +146,8 @@ Retrieves basic information about the device including model, firmware version, 
 
 :::info v2.0 Changes
 v2.0 adds `apiVersion` and `httpPostVersion` fields directly in the response.
+:::
+
+:::info v2.1
+`apiVersion` and `httpPostVersion` both read `2.1.0`. Field names are otherwise the same, including the firmware spelling `supportVehice`. Responses use config version `2.1.0`. Verified on a camera running 5.3.1 firmware.
 :::

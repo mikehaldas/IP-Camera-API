@@ -82,6 +82,7 @@ All Viewtron IP cameras and NVRs are NDAA compliant (safe for US government and 
   - [6.6 traject -- Real-Time Target Tracking](#66-traject----real-time-target-tracking)
   - [6.7 Image Data Handling](#67-image-data-handling)
   - [6.8 Timestamp Handling](#68-timestamp-handling)
+  - [6.9 IPC HTTP POST Format (v2.1)](#69-ipc-http-post-format-v21)
 - [7. Playback Commands](#7-playback-commands)
   - [GetRecordType](#getrecordtype)
   - [SearchByTime](#searchbytime)
@@ -95,6 +96,7 @@ All Viewtron IP cameras and NVRs are NDAA compliant (safe for US government and 
   - [GetSmartTripwireConfig](#getsmarttripwireconfig)
   - [GetSmartVfdConfig](#getsmartvfdconfig)
   - [GetSmartVehicleConfig / AddVehiclePlate / GetVehiclePlate](#getsmartvehicleconfig--addvehicleplate--getvehicleplate)
+  - [GetSmartLicensePlateConfig / License Plate Database (v2.1)](#getsmartlicenseplateconfig--license-plate-database-v21)
   - [GetSmartAoiEntryConfig / GetSmartAoiLeaveConfig](#getsmartaoientryconfig--getsmartaoileaveconfig)
   - [GetSmartPassLineCountConfig / GetPassLineCountStatistics](#getsmartpasslinecountconfig--getpasslinecountstatistics)
   - [GetSmartVsdConfig](#getsmartvsdconfig)
@@ -123,13 +125,15 @@ You can use this API to:
 
 ### 1.2 API Versions
 
-Viewtron devices ship with one of two firmware generations. The HTTP API protocol is approximately 95% identical between them. This guide documents both versions as a single unified reference, with inline callouts where they differ.
+Viewtron devices ship with one of several API generations (1.x, 2.0, 2.1). The HTTP API protocol is approximately 95% identical between them. This guide documents these generations as a single unified reference, with inline callouts where they differ.
 
 **How to check your version:** Send a `GetDeviceInfo` request. The response includes an `apiVersion` field:
 
 ```xml
 <apiVersion type="string"><![CDATA[2.0.0]]></apiVersion>
 ```
+
+`apiVersion` may read `2.0.0` or `2.1.0`. Treat any `2.x` value as the v2 family, then call `GetSupportedAPIs` to see which commands that device actually has. Commands differ between 2.0 and 2.1 firmware (see [What changed in v2.1](#what-changed-in-v21)).
 
 If there is no `apiVersion` field, use `GetDeviceDetail` -- the `apiVersion` appears in the `property` block. Devices without either field are running the v1.x protocol.
 
@@ -139,8 +143,11 @@ If there is no `apiVersion` field, use `GetDeviceDetail` -- the `apiVersion` app
 |----------|-------------|----------------------|
 | IPC 5.2 or earlier | v1.9 (v1.0 / v1.7) | `1.0` or `1.7` |
 | IPC 5.3 or later | v2.0.0 | `2.0.0` |
+| IPC 5.3.1 or later (2026 builds) | v2.1.0 | `2.1.0` |
 | NVR 1.4.12 or earlier | v1.9 | `1.0` or `1.7` |
 | NVR 1.4.13 or later | v2.0.0 | `2.0.0` |
+
+Some 5.3.x builds report `2.0.0`. Always read `apiVersion`.
 
 **What changed in v2.0:**
 
@@ -155,9 +162,20 @@ If there is no `apiVersion` field, use `GetDeviceDetail` -- the `apiVersion` app
 - New command: `GetAudioStreamConfig`
 - New command: `GetPassLineCountStatistics`
 - New command: `GetMeasureTemperatureConfig` (thermal cameras)
-- New command: `GetVehiclePlate` (query plate database)
+- `GetVehiclePlate` (query plate database; replaced by `GetLicensePlates` on v2.1)
 - Error codes expanded from 5 to 50+ with descriptive `errorDesc` attribute
 - v2.0 responses include `Applicable Products` metadata (IPC, NVR, or both)
+
+#### What changed in v2.1
+
+Verified on a camera running 5.3.1 firmware:
+
+- `GetDeviceInfo` reports `apiVersion` `2.1.0` and `httpPostVersion` `2.1.0`. Responses use config version `2.1.0`.
+- The license plate database uses group-based commands: `GetLicensePlateGroups`, `GetLicensePlates`, `AddLicensePlates`, `ModifyLicensePlate`, `DeleteLicensePlate`. LPR detection settings use `GetSmartLicensePlateConfig` / `SetSmartLicensePlateConfig`. Plate snapshot search uses `SearchSnapLicensePlates` / `DownloadSnapLicensePlate`.
+- `GetVehiclePlate`, `AddVehiclePlate`, `GetSmartVehicleConfig`, and `GetVehicleConfig` return HTTP 400 with `errorCode="1"` (Invalid Request) on v2.1.
+- `GetHttpPostConfig` / `SetHttpPostConfig` are not part of the public API on v2.1. Configure HTTP POST in the camera's web interface.
+- In the camera's HTTP POST V2 settings, the data-type list is named `subDataType` (earlier firmware: `subscribeDateType`).
+- The v2.1 HTTP POST event format is being verified. See [6.9](#69-ipc-http-post-format-v21).
 
 After this section, you should not need to think about versions unless you encounter a specific callout.
 
@@ -333,6 +351,7 @@ These enums are defined by the device and used as type references elsewhere in t
 | 17 | **Service Not Enabled** -- API service not enabled |
 | 18 | **Modification Not Allowed** -- Change would cause system restart |
 | 19 | **Over Specifications** -- Exceeding system limits |
+| 20 | **Resources Not Exist** -- The query matched nothing (for example, an empty plate database from GetLicensePlates) |
 | 79 | **Internal Error** -- Device processing error |
 | 80 | **Upgrade Error** |
 | 81 | **Upgrade Version Same** |
@@ -397,7 +416,7 @@ Retrieves basic information about the device including model, firmware version, 
 | **Products** | IPC, NVR |
 | **Entity Data** | None |
 
-> Tested: IPC v1.9 (firmware 5.1.4.0), NVR v2.0 (firmware 1.4.13)
+> Tested: IPC v1.9 (firmware 5.1.4.0), NVR v2.0 (firmware 1.4.13), IPC v2.1 (firmware 5.3.1)
 
 **Response (v2.0 IPC):**
 
@@ -498,6 +517,8 @@ Retrieves basic information about the device including model, firmware version, 
 
 > **v2.0 adds:** `apiVersion`, `httpPostVersion` fields directly in the response.
 
+> **v2.1 note:** `apiVersion` and `httpPostVersion` both read `2.1.0`. Field names are otherwise the same, including the firmware spelling `supportVehice`.
+
 ---
 
 ### GetSupportedAPIs
@@ -510,7 +531,7 @@ Retrieves the list of all API endpoints supported by the device.
 | **Products** | IPC, NVR |
 | **Entity Data** | None |
 
-> **v2.0 only.** This command does not exist on v1.9 firmware.
+> **v2.x only (2.0 and 2.1).** This command does not exist on v1.9 firmware.
 
 **Response:**
 
@@ -534,6 +555,8 @@ Retrieves the list of all API endpoints supported by the device.
 
 **Notes:**
 - Use the API names in each `<item>` to look up commands in this document.
+- The `count` attribute may not equal the number of `<item>` elements, and a name can appear more than once. De-duplicate the names before use. Verified on a camera running 5.3.1 firmware, `count` was 111 and the list contained 90 unique names, with duplicates.
+- This is the recommended way to check whether a command exists before calling it. Command sets differ by device type and firmware (for example, plate database commands on v2.1 cameras).
 
 ---
 
@@ -1701,6 +1724,8 @@ A separate, older alarm server system. **IPC only.** Operates independently from
 
 > **Note:** `SetAlarmServerConfig` returned error 499 in testing. Use `SetHttpPostConfig` instead (Section 5.5).
 
+> **v2.1 note:** `GetAlarmServerConfig` / `SetAlarmServerConfig` are present on v2.1 cameras and are a separate on/off switch from HTTP POST. The schema has server address, port, and heartbeat settings, and no URL path element. The default port is 8010.
+
 #### SendAlarmStatus
 
 Sent **by the device** to your alarm server when an alarm occurs. Your server must implement an endpoint to receive this.
@@ -1741,6 +1766,8 @@ Both are configured via `GetHttpPostConfig` / `SetHttpPostConfig` -- separate fr
 The NVR also has an HTTP Post system configured in its web interface. The NVR system sends alarm events using v2.0 XML format but does **not** support `traject`.
 
 > Tested: IPC v1.9 (firmware 5.1.4.0, API version 1.7)
+
+> **v2.1 firmware:** `GetHttpPostConfig` and `SetHttpPostConfig` return HTTP 400 with `errorCode="1"` (Invalid Request) and are not listed by `GetSupportedAPIs`. Set up HTTP POST in the camera web interface (Network → HTTP POST, or similar). The commands below apply to firmware that lists them.
 
 #### GetHttpPostConfig
 
@@ -1791,6 +1818,8 @@ The NVR also has an HTTP Post system configured in its web interface. The NVR sy
   </httpPostV2>
 </config>
 ```
+
+On newer firmware the v1 `httpPost` block has no `URL` element; posts go to the server address and port only.
 
 #### SetHttpPostConfig
 
@@ -1858,11 +1887,15 @@ The NVR also has an HTTP Post system configured in its web interface. The NVR sy
 The `subscriptionEvents` field controls which detection types trigger posts:
 
 ```
-ALL, MOTION, SENSOR, PERIMETER, TRIPWIRE, OSC, AVD,
+ALL, MOTION, SENSOR, PERIMETER, TRIPWIRE, OSC, AVD, VEHICLE,
 AOIENTRY, AOILEAVE, PASSLINECOUNT, TRAFFIC, VSD, PVD, LOITER, ASD
 ```
 
-#### httpPostV2 Data Types (subscribeDateType)
+The list varies by camera model and firmware. Read the camera's own options in its web interface rather than assuming every value is available. For example, a v2.1 LPR camera offers `ALL`, `MOTION`, `SENSOR`, `AVD`, `VEHICLE`.
+
+#### httpPostV2 Data Types (`subscribeDateType` / `subDataType`)
+
+The element name depends on firmware: `subscribeDateType` in the 5.1.x sample above, `subDataType` on 5.3.1 / v2.1. The values (`alarmStatus`, `traject`, `smartData`, `sourceImage`, `targetImage`) are the same.
 
 | Data Type | GUI Label | Description | Post Frequency | Post Size |
 |-----------|-----------|-------------|----------------|-----------|
@@ -1911,6 +1944,8 @@ Retrieves white light (strobe) alarm configuration. **IPC only.**
 Viewtron devices can push real-time AI detection events to your HTTP server as webhooks. There are two sources of HTTP POST data:
 
 1. **IP Camera (direct)** -- The camera sends posts directly to your server using the IPC v1.x XML format (config version `1.0` or `1.7`). Supports the full httpPostV2 subscription system including real-time `traject` tracking.
+
+   Cameras on v2.1 firmware report `httpPostVersion` 2.1.0, and their direct posts may use a newer format. See [6.9](#69-ipc-http-post-format-v21).
 
 2. **NVR (forwarded)** -- The NVR receives events from cameras on its PoE ports and forwards them to your server using the NVR v2.0 XML format (config version `2.0.0`). Does NOT support `traject`.
 
@@ -3005,6 +3040,12 @@ with open("snapshot.jpg", "wb") as f:
 
 ---
 
+### 6.9 IPC HTTP POST Format (v2.1)
+
+Verification of direct camera posts on v2.1 firmware is in progress. Until this section is complete, log the raw post body and check for `messageType`, the `smartType` spelling, and where the plate list result appears.
+
+---
+
 ## 7. Playback Commands
 
 ### GetRecordType
@@ -3235,6 +3276,8 @@ Retrieves face detection configuration.
 
 License plate recognition configuration and database management.
 
+> **Applies to API 1.x-2.0 firmware.** On v2.1 cameras these commands return HTTP 400 with `errorCode="1"` (Invalid Request). Use the [v2.1 commands](#getsmartlicenseplateconfig--license-plate-database-v21) below.
+
 #### GetSmartVehicleConfig
 
 | Field | Value |
@@ -3321,7 +3364,7 @@ Retrieves license plates from the database.
 | **URL** | `POST` or `GET http://<host>[:port]/GetVehiclePlate` |
 | **Products** | IPC |
 
-> **v2.0 only.**
+> Observed on API 1.7 and 2.0 camera firmware; not available on v2.1.
 
 **Request:**
 
@@ -3339,6 +3382,224 @@ Retrieves license plates from the database.
   </vehiclePlates>
 </config>
 ```
+
+---
+
+### GetSmartLicensePlateConfig / License Plate Database (v2.1)
+
+Group-based license plate detection and database commands on v2.1 cameras. Verified on a camera running 5.3.1 firmware.
+
+#### GetSmartLicensePlateConfig / SetSmartLicensePlateConfig
+
+`GetSmartLicensePlateConfig` reads LPR detection settings: detection `switch`, `direction` (for example `noLimit`), boundary area, and mask areas. The matching Set command is `SetSmartLicensePlateConfig`.
+
+| Field | Value |
+|-------|-------|
+| **URL** | `POST` or `GET http://<host>[:port]/GetSmartLicensePlateConfig` |
+| **URL** | `POST http://<host>[:port]/SetSmartLicensePlateConfig` |
+| **Products** | IPC |
+
+#### GetLicensePlateGroups
+
+Returns the plate groups on the camera. Read group IDs from this command. Do not hard-code them. The `whiteList` group is not group 1.
+
+| Field | Value |
+|-------|-------|
+| **URL** | `POST` or `GET http://<host>[:port]/GetLicensePlateGroups` |
+| **Products** | IPC |
+
+On a camera running 5.3.1 firmware, `GetLicensePlateGroups` returned:
+
+| groupId | name |
+|---------|------|
+| 1 | temporaryList |
+| 2 | whiteList |
+| 3 | blackList |
+
+> `strangerList` appears as a plate-match alarm option. It is not a database group.
+
+#### AddLicensePlates
+
+Add one or more plates to the camera's database.
+
+| Field | Value |
+|-------|-------|
+| **URL** | `POST http://<host>[:port]/AddLicensePlates` |
+| **Products** | IPC |
+
+**Request:**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <licensePlates type="list" maxCount="100" count="1">
+        <item>
+            <index>1</index>
+            <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
+            <groupId><![CDATA[2]]></groupId>
+        </item>
+    </licensePlates>
+</config>
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `index` | integer | Item index (1-based) |
+| `licensePlateNumber` | string (CDATA) | License plate number |
+| `groupId` | string (CDATA) | Group ID from `GetLicensePlateGroups` (for example `2` = whiteList). Do not hard-code group IDs. |
+
+**Response (success):**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <licensePlatesReply>
+        <item>
+            <index type="uint32">1</index>
+            <errorCode type="uint32">0</errorCode>
+        </item>
+    </licensePlatesReply>
+</config>
+```
+
+Multiple plates can be added in a single request. Increase the `count` attribute and add `<item>` elements with incrementing `index` values. The camera assigns begin and end validity times. Use `ModifyLicensePlate` to change them.
+
+#### GetLicensePlates
+
+Query the plate database. `searchFilter` uses `resultOffset` and `maxResult`.
+
+| Field | Value |
+|-------|-------|
+| **URL** | `POST http://<host>[:port]/GetLicensePlates` |
+| **Products** | IPC |
+
+**Request:**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <searchFilter>
+        <maxResult>10</maxResult>
+        <resultOffset>1</resultOffset>
+        <groupId><![CDATA[2]]></groupId>
+    </searchFilter>
+</config>
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `maxResult` | integer | Maximum number of results to return |
+| `resultOffset` | integer | Starting position. 1-based: the first plate is offset `1`. Offset `0` returns errorCode 16 (Range Error). |
+| `groupId` | string (CDATA) | Group ID from `GetLicensePlateGroups` (for example `2` = whiteList). Do not hard-code group IDs. |
+
+**Response:**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <licensePlates type="list" total="2" count="2">
+        <item>
+            <licensePlateNumber type="string"><![CDATA[ABC1234]]></licensePlateNumber>
+            <groupId type="string"><![CDATA[2]]></groupId>
+            <beginTime type="string"><![CDATA[2026-04-07 09:28:45]]></beginTime>
+            <endTime type="string"><![CDATA[2037-12-30 10:59:59]]></endTime>
+            <licensePlateType type="string"><![CDATA[]]></licensePlateType>
+            <carOwner type="string"><![CDATA[Mike]]></carOwner>
+            <cardNumber type="string"><![CDATA[]]></cardNumber>
+            <telephone type="string"><![CDATA[]]></telephone>
+        </item>
+    </licensePlates>
+</config>
+```
+
+| Field | Description |
+|-------|-------------|
+| `licensePlateNumber` | Plate number |
+| `groupId` | Group this plate belongs to |
+| `beginTime` | Start of validity period |
+| `endTime` | End of validity period |
+| `carOwner` | Vehicle owner name |
+| `telephone` | Owner phone number |
+| `cardNumber` | Associated card number |
+| `licensePlateType` | Plate type |
+
+An empty result returns errorCode 20 (Resources Not Exist).
+
+#### ModifyLicensePlate
+
+Update an existing plate's details (owner, phone, validity dates).
+
+| Field | Value |
+|-------|-------|
+| **URL** | `POST http://<host>[:port]/ModifyLicensePlate` |
+| **Products** | IPC |
+
+**Request:**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <licensePlate>
+        <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
+        <groupId><![CDATA[2]]></groupId>
+        <carOwner type="string"><![CDATA[John Doe]]></carOwner>
+        <telephone type="string"><![CDATA[555-123-4567]]></telephone>
+    </licensePlate>
+</config>
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `licensePlateNumber` | string (CDATA) | Yes | Plate number to modify (must already exist) |
+| `groupId` | string (CDATA) | Yes | Group ID from `GetLicensePlateGroups`. Do not hard-code group IDs. |
+| `carOwner` | string (CDATA) | No | Updated owner name |
+| `telephone` | string (CDATA) | No | Updated phone number |
+
+**Response (success):**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10" status="success" errorCode="0" errorDesc="No Error"/>
+```
+
+Fields being modified must include the `type="string"` attribute, or the camera returns a Range Error. The plate is identified by `licensePlateNumber` and `groupId`. Both are required.
+
+#### DeleteLicensePlate
+
+Delete a plate from the database.
+
+| Field | Value |
+|-------|-------|
+| **URL** | `POST http://<host>[:port]/DeleteLicensePlate` |
+| **Products** | IPC |
+
+**Request:**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10">
+    <deleteAction>
+        <licensePlateNumber><![CDATA[ABC1234]]></licensePlateNumber>
+        <groupId><![CDATA[2]]></groupId>
+    </deleteAction>
+</config>
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `licensePlateNumber` | string (CDATA) | Plate number to delete |
+| `groupId` | string (CDATA) | Group ID from `GetLicensePlateGroups`. Do not hard-code group IDs. |
+
+**Response (success):**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2.1.0" xmlns="http://www.ipc.com/ver10" status="success" errorCode="0" errorDesc="No Error"/>
+```
+
+#### SearchSnapLicensePlates / DownloadSnapLicensePlate
+
+`SearchSnapLicensePlates` and `DownloadSnapLicensePlate` are available on v2.1. Request format to be documented.
 
 ---
 
