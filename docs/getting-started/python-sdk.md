@@ -1,7 +1,7 @@
 ---
-title: "Viewtron Python SDK"
+title: "Python API for IP Cameras: Viewtron Python SDK"
 sidebar_label: "Python SDK"
-description: "Python SDK for Viewtron IP cameras. Parse inbound AI detection events (LPR, face, intrusion) and control cameras programmatically. Install with pip install viewtron."
+description: "A Python API for IP cameras and NVRs. The Viewtron Python SDK receives and parses AI detection events (LPR, face, intrusion) and controls cameras. Install with pip install viewtron."
 keywords:
   - viewtron python sdk
   - ip camera python library
@@ -17,9 +17,9 @@ keywords:
 sidebar_position: 6
 ---
 
-# Viewtron Python SDK
+# Viewtron Python SDK: Python API for IP Cameras
 
-The Viewtron Python SDK (`pip install viewtron`) is the recommended way to work with the Viewtron IP Camera API. It handles three things:
+The Viewtron Python SDK (`pip install viewtron`) is a Python API for IP cameras and NVRs, and the recommended way to work with the Viewtron IP Camera API from Python. It handles three things:
 
 1. **Event server** — built-in HTTP server that receives camera webhook events, handles persistent connections and keepalives
 2. **Event parsing** — automatically detects IPC v1.x vs NVR v2.0 format and returns typed Python objects
@@ -35,7 +35,7 @@ pip install viewtron
 
 Requires Python 3.8+. Dependencies: `requests`, `xmltodict`.
 
-Source code: [github.com/mikehaldas/viewtron-python-sdk](https://github.com/mikehaldas/viewtron-python-sdk) | Full API reference: [Python SDK Reference](/docs/category/python-sdk-reference)
+Source code: [github.com/mikehaldas/viewtron-python-sdk](https://github.com/mikehaldas/viewtron-python-sdk) | Full API reference: [ViewtronServer](/docs/python-sdk-reference/server), [ViewtronEvent](/docs/python-sdk-reference/events), [ViewtronCamera](/docs/python-sdk-reference/client)
 
 ## Receiving Events — ViewtronServer
 

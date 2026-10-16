@@ -45,8 +45,8 @@ The [API Reference](/docs/category/api-reference) documents every HTTP endpoint 
 
 The SDKs wrap the raw API with typed objects, built-in HTTP servers for receiving webhook events, and automatic IPC/NVR version handling.
 
-- **[Python SDK Reference](/docs/category/python-sdk-reference)** — `pip install viewtron` — ViewtronServer receives events, ViewtronEvent parses them, ViewtronCamera manages plate databases
-- **[Node.js SDK Reference](/docs/category/nodejs-sdk-reference)** — `npm install viewtron-sdk` — EventEmitter-based server with the same event model
+- **[Python SDK](/docs/getting-started/python-sdk)** — `pip install viewtron` — ViewtronServer receives events, ViewtronEvent parses them, ViewtronCamera manages plate databases
+- **[Node.js SDK](/docs/getting-started/nodejs-sdk)** — `npm install viewtron-sdk` — EventEmitter-based server with the same event model
 
 Developers who don't use our SDKs need to build their own HTTP servers and XML parsing.
 
@@ -85,7 +85,7 @@ All [Viewtron IP cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1
 ## Quick Start
 
 1. **Authenticate** — all requests use [Basic Authentication](/docs/getting-started/authentication)
-2. **Install an SDK** — `pip install viewtron` ([Python](/docs/category/python-sdk-reference)) or `npm install viewtron-sdk` ([Node.js](/docs/category/nodejs-sdk-reference))
+2. **Install an SDK** — `pip install viewtron` ([Python](/docs/getting-started/python-sdk)) or `npm install viewtron-sdk` ([Node.js](/docs/getting-started/nodejs-sdk))
 3. **Test connectivity** — send a `GetDeviceInfo` request to verify access
 4. **Explore Applications** — browse [solution guides](/docs/category/applications) to see what you can build
 5. **Connect to Home Assistant** — set up the [Home Assistant integration](/docs/integrations/home-assistant) for smart home automations
@@ -93,8 +93,8 @@ All [Viewtron IP cameras](https://www.cctvcamerapros.com/AI-security-cameras-s/1
 
 ## Resources
 
-- **Python SDK** — [`pip install viewtron`](/docs/category/python-sdk-reference) — receive AI detection events and manage plate databases from Python
-- **Node.js SDK** — [`npm install viewtron-sdk`](/docs/category/nodejs-sdk-reference) — EventEmitter-based server for receiving camera events in Node.js
+- **Python SDK** — [`pip install viewtron`](/docs/getting-started/python-sdk) — receive AI detection events and manage plate databases from Python
+- **Node.js SDK** — [`npm install viewtron-sdk`](/docs/getting-started/nodejs-sdk) — EventEmitter-based server for receiving camera events in Node.js
 - **Home Assistant Integration** — [connect Viewtron cameras to Home Assistant](/docs/integrations/home-assistant) via MQTT auto-discovery
 - **API Server & Examples** — [github.com/mikehaldas/IP-Camera-API](https://github.com/mikehaldas/IP-Camera-API) — working webhook receiver examples
 - **Markdown Documentation** — all documentation pages are available as Markdown files in the [GitHub docs directory](https://github.com/mikehaldas/IP-Camera-API/tree/main/docs) for easy integration with AI coding assistants and automated tools
