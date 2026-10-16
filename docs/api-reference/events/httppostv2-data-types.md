@@ -41,8 +41,12 @@ IPC IP-AX8D, March 29, 2026, all five data types subscribed:
 13:59:08.546  traject stops     -- person leaves zone
 13:59:19.056  alarmStatus       -- perimeterAlarm=false (659 bytes)
 
-14:00:49+     keepalives        -- empty body posts every ~90 seconds
+14:00:49+     keepalives        -- empty body posts about every 90 seconds
 ```
+
+:::note Keepalive interval and body
+The keepalive interval is configurable in the camera's HTTP POST settings (`keepaliveTimeval`, 30-120 seconds; see [Webhook Configuration](/docs/api-reference/alarm/http-post-webhook-config)). The ~90 seconds above reflects that camera's setting, not a fixed value. The empty keepalive body was seen on this IP-AX8D. Other models and firmware send a body: LPR-IP4 firmware 5.3.1 sends a `config` 1.7 document with `messageType` `keepalive`. Older firmware uses a `<DeviceInfo>` root. See [IPC Format: Keepalive](./ipc-event-format.md#keepalive).
+:::
 
 **Total: 104 traject posts, 4 smartData+image posts, 2 alarmStatus posts, 3 keepalives**
 

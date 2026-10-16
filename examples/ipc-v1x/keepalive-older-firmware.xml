@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IPC v1.x: Keepalive, older-firmware format
+     Some older camera firmware sends the heartbeat with a DeviceInfo root
+     element (not <config>) and the device serial number (SN).
+     Firmware 5.3.1 uses a different body: see keepalive.xml.
+     Some cameras send keep-alive posts with an empty body instead.
+     How often it arrives is set by the keep-alive interval in the camera's
+     HTTP POST settings (keepaliveTimeval). All values are placeholders. -->
+<DeviceInfo>
+    <DeviceName>Device Name</DeviceName>
+    <DeviceNo.>1</DeviceNo.>
+    <SN><![CDATA[SERIALNUMBER]]></SN>
+    <ipAddress>192.0.2.100</ipAddress>
+    <macAddress>00:00:00:00:00:00</macAddress>
+</DeviceInfo>

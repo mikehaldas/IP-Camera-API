@@ -1,12 +1,20 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- IPC v1.x: Keepalive
-     Heartbeat sent periodically by the IP camera. No alarm data, no images.
-     Note: IPC keepalive uses a DeviceInfo root element (not <config>).
-     Fields include device serial number (SN) which the NVR keepalive does not have. -->
-<DeviceInfo>
-    <DeviceName>Device Name</DeviceName>
-    <DeviceNo.>1</DeviceNo.>
-    <SN><![CDATA[NF40D099BCM0]]></SN>
-    <ipAddress>192.168.1.192</ipAddress>
-    <macAddress>58:5b:69:5a:84:bb</macAddress>
-</DeviceInfo>
+<!-- IPC v1.x: Keepalive (firmware 5.3.1)
+     Observed on LPR-IP4 firmware 5.3.1 with HTTP POST V1. The body has no
+     XML declaration. It is a config version 1.7 document with
+     messageType keepalive and a deviceInfo block. No alarm data, no images.
+     The camera reused one persistent HTTP connection for these posts.
+
+     How often it arrives is set by the keep-alive interval in the camera's
+     HTTP POST settings (keepaliveTimeval). With that setting at 90 s, the
+     camera sent one every 90 s. 90 s is an example setting, not a fixed value.
+
+     Older firmware uses a DeviceInfo root instead: see
+     keepalive-older-firmware.xml. All values are placeholders. -->
+<config version="1.7" xmlns="http://www.ipc.com/ver10">
+<messageType>keepalive</messageType>
+<deviceInfo>
+<deviceName><![CDATA[LPR Camera]]></deviceName>
+<ip><![CDATA[192.0.2.100]]></ip>
+<mac><![CDATA[00:00:00:00:00:00]]></mac>
+</deviceInfo>
+</config>

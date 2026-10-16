@@ -8,7 +8,7 @@ sidebar_position: 4
 
 # NVR Event Format (v2.0)
 
-NVRs send alarm data using config version `2.0.0` with `Content-Type: application/soap+xml; charset=utf-8` and `Connection: close`. The NVR sends three message types identified by a `<messageType>` field (IPC posts do not have this field).
+NVRs send alarm data using config version `2.0.0` with `Content-Type: application/soap+xml; charset=utf-8` and `Connection: close`. The NVR sends three message types identified by a `<messageType>` field. IPC alarm posts do not have this field, but IPC keepalives on firmware 5.3.1 do (see [IPC Format](./ipc-event-format.md#keepalive)).
 
 > Tested: NVR v2.0 (firmware 1.4.13), February-March 2026
 
@@ -19,19 +19,19 @@ NVRs send alarm data using config version `2.0.0` with `Content-Type: applicatio
 | **Config version** | `1.0` or `1.7` | `2.0.0` |
 | **Content-Type** | `application/xml; charset=utf-8` | `application/soap+xml; charset=utf-8` |
 | **Connection** | `keep-alive` | `close` |
-| **messageType field** | Not present | `keepalive`, `alarmStatus`, `alarmData` |
+| **messageType field** | Not present on alarm posts. Present (`keepalive`) on keepalives from firmware 5.3.1 | `keepalive`, `alarmStatus`, `alarmData` |
 | **deviceInfo block** | Varies | Always present with `deviceName`, `ip`, `mac`, `channelId` |
 | **smartType values** | Codes: `PEA`, `VFD`, `VEHICE`, `VSD` | Spelled out: `regionIntrusion`, `lineCrossing`, `videoFaceDetect`, `videoMetadata`, `vehicle` |
 | **Timestamp** | `dataTime` string or `currentTime` (10-16 digits) | `currentTime` Unix **microseconds** (16 digits) |
 | **Event data** | `perimeter/perInfo` or `listInfo/item` | `eventInfo/item` with `eventId`, `targetId`, `boundary`, `pointGroup`, `rect` |
 | **Image data** | `sourceDataInfo` + `listInfo/targetImageData` | `sourceDataInfo` + `targetListInfo/targetImageData` |
-| **targetType** | Numeric: 1=person, 2=car, 4=bike | String: `person`, `car`, `motor` |
+| **targetType** | Numeric (1=person, 2=car, 4=bike) in older samples. String (`car`) on LPR-IP4 firmware 5.3.1 plate posts | String: `person`, `car`, `motor` |
 | **POST line** | `POST /API HTTP/1.1` (path only) | `POST http://192.168.0.56:5002/API HTTP/1.1` (full URL) |
 | **Type annotations** | Present (`type="uint32"`) | Not present |
 
 ## Keepalive
 
-Heartbeat sent approximately every 10 seconds.
+Periodic heartbeat. The interval is most likely set by the heartbeat or keepalive setting in the NVR's HTTP POST or alarm server configuration, so don't assume a fixed number. The NVR interval has not been measured. An earlier version of this page said "approximately every 10 seconds"; that figure is unconfirmed. Base any "connection lost" timeout on the interval you configured.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -356,7 +356,11 @@ Full-frame object detection. NVR equivalent of IPC `VSD`.
 
 ### vehicle (LPR)
 
-License plate recognition. NVR equivalent of IPC `VEHICE`. Uses a completely different XML structure -- `licensePlateListInfo` instead of `eventInfo` + `targetListInfo`.
+License plate recognition. NVR equivalent of IPC `VEHICE` / `VEHICLE`. Uses a completely different XML structure -- `licensePlateListInfo` instead of `eventInfo` + `targetListInfo`.
+
+:::caution Not yet re-verified
+This section has not been confirmed against a current captured NVR plate post. Treat the field names, the 20-digit `currentTime`, and whether `licensePlateMatchInfo/groupName` appears as unconfirmed. Log the raw post body from your NVR before you rely on them.
+:::
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -422,9 +426,10 @@ License plate recognition. NVR equivalent of IPC `VEHICE`. Uses a completely dif
 | `carAttribute/brand` | Vehicle brand | `GMC` |
 | `carAttribute/model` | Vehicle model | `GMC_SAVANA` |
 | `targetImageData` | Cropped plate image (128x64 JPEG) | base64 |
+| `licensePlateMatchInfo/groupName` | Plate database group name when the plate matches a group. Not in the sample above, and not yet confirmed in a captured post. | `Whitelist` |
 
 **Notable observations:**
-- Vehicle attribute recognition identifies type, color, brand, and model -- far richer than IPC v1.x format
+- Vehicle attribute recognition identifies type, color, brand, and model. IPC posts on LPR-IP4 firmware 5.3.1 carry the same kind of data in `carAttr` (see [IPC Format](./ipc-event-format.md#lpr-event-vehice--vehicle))
 - `currentTime` anomaly: the 20-digit timestamp appears to be a firmware bug
 - `sourceDataInfo` has zero dimensions but the post is ~628 KB
 - No `alarmStatus` observed for this detection type

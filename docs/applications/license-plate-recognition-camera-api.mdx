@@ -16,7 +16,7 @@ import TabItem from '@theme/TabItem';
 
 # License Plate Recognition Camera API (LPR/ALPR)
 
-Viewtron AI security cameras include built-in license plate recognition (LPR/ALPR) that runs entirely on the camera hardware — no cloud service, external software, or third-party LPR engine required. When a vehicle passes through the camera's detection zone, the camera reads the license plate and sends an HTTP POST webhook to your server with the plate number, a cropped plate image, and (on NVR v2.0) detailed vehicle attributes including type, color, brand, and model.
+Viewtron AI security cameras include built-in license plate recognition (LPR/ALPR) that runs entirely on the camera hardware — no cloud service, external software, or third-party LPR engine required. When a vehicle passes through the camera's detection zone, the camera reads the license plate and sends an HTTP POST webhook to your server with the plate number, a cropped plate image, an overview image, and, depending on firmware, vehicle attributes including type, color, brand, and model. LPR-IP4 firmware 5.3.1 sends vehicle attributes in the camera's own post (`carAttr`), and the NVR v2.0 format carries them as `carAttribute`.
 
 The API also supports managing an on-camera plate database with whitelist and blacklist entries, enabling automated gate access control without any middleware. Plates can be added with date ranges and owner information. The camera includes a Wiegand output for direct integration with gate controllers and access control panels. All Viewtron IP cameras and NVRs are NDAA compliant.
 
@@ -42,23 +42,27 @@ The API also supports managing an on-camera plate database with whitelist and bl
 
 ## Event Data
 
-Each LPR webhook POST contains:
+Each LPR webhook POST contains the fields below. Field names differ between a camera posting directly (IPC v1.x) and an NVR (v2.0), and some fields depend on firmware. See [Firmware Differences](/docs/api-reference/events/ipc-event-format#firmware-differences).
 
 | Field | Description |
 |-------|-------------|
-| `smartType` | `VEHICE` (IPC) or `vehicle` (NVR) |
+| `smartType` | IPC: `VEHICE` or `VEHICLE`, depending on firmware. NVR: `vehicle` |
 | `plateNumber` / `licensePlateNumber` | Detected plate text (e.g., `JP116D`) |
-| `vehicleListType` | IPC: `whiteList`, `blackList`, `temporaryList`, or absent if not in database |
-| `licensePlateMatchInfo/groupName` | NVR: user-defined group name (e.g., "Whitelist", "Residents"), or absent if not in database |
-| `licensePlateAttribute/color` | Plate color (NVR v2.0) |
-| `carAttribute/carType` | Vehicle type: `sedan`, `suv`, `mpv`, `truck`, etc. (NVR v2.0) |
-| `carAttribute/color` | Vehicle color (NVR v2.0) |
-| `carAttribute/brand` | Vehicle brand: `GMC`, `Ford`, `Toyota`, etc. (NVR v2.0) |
-| `carAttribute/model` | Vehicle model: `GMC_SAVANA`, etc. (NVR v2.0) |
-| `rect` | Plate bounding box coordinates (x1, y1, x2, y2) |
+| `vehicleDirect` | IPC: `approach` or `away` |
+| `PlateConfidence` | IPC: confidence in the `count` attribute, 0-10000 (`count="9900"` = 99%) |
+| `vehicleListType` | IPC: `whiteList` or `blackList` on firmware 5.3.1, absent if the plate is on no list. Never sent on firmware 5.1.x. `temporaryList` is documented but not yet confirmed in a captured post. |
+| `licensePlateMatchInfo/groupName` | NVR: user-defined group name (e.g., "Whitelist", "Residents"), or absent if not in database. Not yet confirmed in a captured post. |
+| `plateColor` / `licensePlateAttribute/color` | Plate color. IPC: a numeric code in the `count` attribute. NVR: a color name |
+| `carAttr/type` / `carAttribute/carType` | Vehicle type: `saloon car` (IPC 5.3.1), or `sedan`, `suv`, `mpv`, `truck`, etc. (NVR) |
+| `carAttr/color` / `carAttribute/color` | Vehicle color |
+| `carAttr/brand` / `carAttribute/brand` | Vehicle brand: `GMC`, `Ford`, `Toyota`, etc. |
+| `carAttr/model` / `carAttribute/model` | Vehicle model: `GMC_SAVANA`, etc. |
+| `rect` / corner points | NVR: plate bounding box (x1, y1, x2, y2). IPC: `leftTop`, `rightTop`, `leftBottom`, `rightBottom`, normalized 0-10000 |
 | `targetBase64Data` | Cropped plate JPEG image (base64 encoded, ~10-20 KB) |
-| `sourceBase64Data` | Full-frame overview JPEG image (base64 encoded, ~400-500 KB) |
-| `currentTime` | Detection timestamp |
+| Overview image | Full-frame JPEG, base64 encoded. IPC: `listInfo` item 0 `targetBase64Data` (about 760 KB of base64 text in an LPR-IP4 firmware 5.3.1 post; there is no `sourceDataInfo`). NVR: `sourceBase64Data` |
+| `currentTime` | Detection timestamp, Unix microseconds from the device clock |
+
+Decode the base64 text itself. The declared `targetBase64Length` did not match the actual text on LPR-IP4 firmware 5.3.1.
 
 ## Parsing LPR Events
 
@@ -148,6 +152,10 @@ See the [Node.js SDK reference](/docs/category/nodejs-sdk-reference) for all eve
 
 The NVR v2.0 format uses `licensePlateListInfo` with detailed vehicle attributes and `licensePlateMatchInfo` for plate database group matching:
 
+:::caution Not yet re-verified
+This NVR sample has not been confirmed against a current captured post. In particular, whether `licensePlateMatchInfo/groupName` appears, and its exact name, is unconfirmed. Log the raw post body from your NVR before you rely on these fields.
+:::
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <config version="2.0.0" xmlns="http://www.ipc.com/ver10">
@@ -198,38 +206,60 @@ See the [NVR Event Format](/docs/api-reference/events/nvr-event-format) referenc
   </TabItem>
   <TabItem value="xml-ipc" label="IPC XML (v1.x)">
 
-The IPC v1.x format uses `listInfo` with the plate number and whitelist/blacklist status:
+The IPC v1.x format puts everything in `listInfo`. There is no `sourceDataInfo` block. Item 0 is the overview image. Item 1 holds the plate number, direction, list status, confidence, vehicle attributes, and the plate crop. This shape was observed on LPR-IP4 firmware 5.3.1. Placeholder device values; `IB36NL` is a test plate:
 
 ```xml
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <config version="1.7" xmlns="http://www.ipc.com/ver10">
-    <smartType type="openAlramObj">VEHICE</smartType>
-    <currentTime type="tint64">1732045234584193</currentTime>
-    <sourceDataInfo>
-        <sourceBase64Length type="uint32">418200</sourceBase64Length>
-        <sourceBase64Data type="string">... (base64 JPEG overview) ...</sourceBase64Data>
-    </sourceDataInfo>
-    <listInfo type="list" count="2">
-        <item>
-            <targetImageData>
-                <targetBase64Length type="uint32">52480</targetBase64Length>
-                <targetBase64Data type="string">... (base64 JPEG overview crop) ...</targetBase64Data>
-            </targetImageData>
-        </item>
-        <item>
-            <plateNumber type="string"><![CDATA[ABC1234]]></plateNumber>
-            <vehicleListType type="string">whiteList</vehicleListType>
-            <targetImageData>
-                <targetBase64Length type="uint32">8640</targetBase64Length>
-                <targetBase64Data type="string">... (base64 JPEG plate crop) ...</targetBase64Data>
-            </targetImageData>
-        </item>
-    </listInfo>
+<smartType type="openAlarmObj">VEHICE</smartType>
+<subscribeOption type="subscribeRelationV1">FEATURE_RESULT</subscribeOption>
+<currentTime type="tint64">1785000000123456</currentTime>
+<plateCount type="uint32">1</plateCount>
+<listInfo type="list" count="2">
+    <item>
+        <image type="uint32">0</image>
+        <plateNumber type="string"><![CDATA[]]></plateNumber>
+        <targetImageData>
+            <targetType type="targetType"></targetType>
+            <width type="uint32">0</width>
+            <height type="uint32">0</height>
+            <targetBase64Length type="uint32">770384</targetBase64Length>
+            <targetBase64Data type="string"><![CDATA[... (base64 JPEG overview, ~760 KB) ...]]></targetBase64Data>
+        </targetImageData>
+    </item>
+    <item>
+        <image type="uint32">1</image>
+        <plateNumber type="string"><![CDATA[IB36NL]]></plateNumber>
+        <vehicleDirect type="vehicleDirectType">approach</vehicleDirect>
+        <vehicleListType type="vehileMatchAlarmList">whiteList</vehicleListType>
+        <leftTop><x type="uint32">7559</x><y type="uint32">2072</y></leftTop>
+        <rightTop><x type="uint32">8214</x><y type="uint32">2072</y></rightTop>
+        <leftBottom><x type="uint32">7559</x><y type="uint32">2635</y></leftBottom>
+        <rightBottom><x type="uint32">8214</x><y type="uint32">2635</y></rightBottom>
+        <PlateConfidence type="uint32" count="9900"/>
+        <plateColor type="uint32" count="3"/>
+        <carAttr>
+            <color type="vsdCarAttrColorType">white</color>
+            <type type="vsdCarAttrTypeType">saloon car</type>
+            <brand type="vsdCarAttrBrandType">Toyota</brand>
+            <model type="vsdCarAttrModelType">Toyota_Camry</model>
+        </carAttr>
+        <targetImageData>
+            <targetType type="targetType">car</targetType>
+            <width type="uint32">176</width>
+            <height type="uint32">100</height>
+            <targetBase64Length type="uint32">19520</targetBase64Length>
+            <targetBase64Data type="string"><![CDATA[... (base64 JPEG plate crop) ...]]></targetBase64Data>
+        </targetImageData>
+    </item>
+</listInfo>
 </config>
 ```
 
+This sample is trimmed. The full post is in [examples/ipc-v1x/lpr.xml](https://github.com/mikehaldas/IP-Camera-API/blob/main/examples/ipc-v1x/lpr.xml).
+
 :::note
-The IPC smartType uses `VEHICE` (note the typo in the firmware — not `VEHICLE`). The NVR uses `vehicle`.
+The IPC `smartType` spelling depends on firmware: `VEHICE` (the firmware's own spelling) on 5.1.1.0 build 52592 and on 5.3.1, and `VEHICLE` on 5.1.1.0 build 66800. Accept both. The NVR uses `vehicle`. On firmware 5.1.x, `vehicleListType` is never sent, even for plates on the camera's list.
 :::
 
 See the [IPC Event Format](/docs/api-reference/events/ipc-event-format) reference for the complete v1.x XML structure.

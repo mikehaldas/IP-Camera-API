@@ -1,53 +1,120 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!-- IPC v1.x: VEHICE / VEHICLE (License Plate Recognition)
-     Sent directly by the IP camera when a license plate is detected.
-     NVR v2.0 equivalent: vehicle
+     Sent directly by the IP camera when a license plate is read.
+     Shape observed on LPR-IP4 firmware 5.3.1 (HTTP POST V1 layout, config 1.7).
+     Device identity, the timestamp, image data, and vehicle attribute values
+     are placeholders. IB36NL is a test plate.
+
+     smartType spelling depends on firmware:
+       VEHICE  - firmware 5.1.1.0(52592) and 5.3.1
+       VEHICLE - firmware 5.1.1.0(66800)
      alarmStatus field: vehiceAlarm
 
-     Fields:
-       plateNumber — the detected plate text
-       vehicleListType — whiteList or blackList (authorized plate database)
-       listInfo/item[0] — overview image
-       listInfo/item[1] — plate info + plate crop image
+     Layout:
+       No sourceDataInfo block. The overview image is listInfo item 0
+       (image 0, empty plateNumber, width/height 0, empty targetType).
+       listInfo item 1 holds the plate read and the plate crop
+       (image 1, targetType "car").
 
-     Note: Some firmware versions spell it VEHICE (typo), others VEHICLE. -->
+     Plate item fields:
+       plateNumber      - plate text
+       vehicleDirect    - approach or away
+       vehicleListType  - whiteList or blackList when the plate is on a list
+                          (5.3.1). Absent when the plate is on no list.
+                          Never sent on 5.1.x, even for listed plates.
+       PlateConfidence  - value is in the count attribute, out of 10000
+                          (9900 = 99%). The element has no text.
+       plateColor       - numeric code in the count attribute (not a word)
+       leftTop/rightTop/leftBottom/rightBottom - plate corners, 0-10000
+       PlateWidth/PlateHeight - plate crop size in pixels
+       carAttr          - vehicle color, type, brand, model (5.3.1)
+       carRect          - vehicle box; y was an empty element on 5.3.1
+
+     targetBase64Length is the length the camera declares. It did not match
+     the actual base64 text on 5.3.1, so decode the text itself. -->
 <config version="1.7" xmlns="http://www.ipc.com/ver10">
-    <smartType type="openAlramObj">VEHICE</smartType>
-    <subscribeRelation type="subscribeOption">FEATURE_RESULT</subscribeRelation>
-    <currentTime type="tint64">1732045234584193</currentTime>
-    <types>
-        <openAlramObj type="string">VEHICE,VFD_MATCH,PEA,VFD,VSD,AOIENTRY,AOILEAVE,PASSLINECOUNT,TRAFFIC</openAlramObj>
-        <targetType type="string">1,2,4</targetType>
-    </types>
-    <listInfo type="list" count="2">
-        <item>
-            <targetImageData>
-                <dataType type="uint32">0</dataType>
-                <targetType type="uint32">2</targetType>
-                <Width type="tuint32">1920</Width>
-                <Height type="tuint32">1080</Height>
-                <targetBase64Length type="uint32">161438</targetBase64Length>
-                <targetBase64Data type="string"><![CDATA[BASE64_JPEG_OVERVIEW_IMAGE]]></targetBase64Data>
-            </targetImageData>
-        </item>
-        <item>
-            <plateNumber type="string"><![CDATA[ABC1234]]></plateNumber>
-            <vehicleListType type="string">whiteList</vehicleListType>
-            <targetImageData>
-                <dataType type="uint32">0</dataType>
-                <targetType type="uint32">2</targetType>
-                <Width type="tuint32">150</Width>
-                <Height type="tuint32">50</Height>
-                <targetBase64Length type="uint32">3200</targetBase64Length>
-                <targetBase64Data type="string"><![CDATA[BASE64_JPEG_PLATE_CROP]]></targetBase64Data>
-            </targetImageData>
-        </item>
-    </listInfo>
-    <sourceDataInfo>
-        <dataType type="uint32">0</dataType>
-        <width type="uint32">1920</width>
-        <height type="uint32">1080</height>
-        <sourceBase64Length type="uint32">161438</sourceBase64Length>
-        <sourceBase64Data type="string"><![CDATA[BASE64_JPEG_SOURCE_IMAGE]]></sourceBase64Data>
-    </sourceDataInfo>
+<types><openAlarmObj><enum>MOTION</enum><enum>SENSOR</enum><enum>PEA</enum><enum>AVD</enum><enum>OSC</enum><enum>VFD</enum><enum>VFD_MATCH</enum><enum>VEHICE</enum><enum>AOIENTRY</enum><enum>AOILEAVE</enum><enum>PASSLINECOUNT</enum><enum>TRAFFIC</enum><enum>FIRE</enum><enum>TEMPERATURE</enum><enum>VSD</enum><enum>PVD</enum><enum>LOITER</enum><enum>ASD</enum><enum>SMD</enum><enum>CROWDGATHERING</enum></openAlarmObj><subscribeRelationV1><enum>ALARM</enum><enum>FEATURE_RESULT</enum></subscribeRelationV1><perStatus><enum>SMART_NONE</enum><enum>SMART_START</enum><enum>SMART_STOP</enum><enum>SMART_PROCEDURE</enum></perStatus><targetType><enum>person</enum><enum>car</enum><enum>motor</enum></targetType></types>
+<smartType type="openAlarmObj">VEHICE</smartType>
+<subscribeOption type="subscribeRelationV1">FEATURE_RESULT</subscribeOption>
+<currentTime type="tint64">1785000000123456</currentTime>
+<mac type="string"><![CDATA[00:00:00:00:00:00]]></mac>
+<sn type="string"><![CDATA[SERIALNUMBER]]></sn>
+<deviceName type="string"><![CDATA[LPR Camera]]></deviceName>
+<channelId type="uint32">1</channelId>
+<plateCount type="uint32">1</plateCount>
+<listInfo type="list" count="2">
+    <item>
+        <image type="uint32">0</image>
+        <vehiceId type="uint32">0</vehiceId>
+        <plateNumber type="string"><![CDATA[]]></plateNumber>
+        <plateCharCount type="uint32">0</plateCharCount>
+        <PlateWidth type="uint32">0</PlateWidth>
+        <PlateHeight type="uint32">0</PlateHeight>
+        <SourceImageWidth type="uint32">2688</SourceImageWidth>
+        <SourceImageHeight type="uint32">1776</SourceImageHeight>
+        <leftTop><x type="uint32">0</x><y type="uint32">0</y></leftTop>
+        <rightTop><x type="uint32">0</x><y type="uint32">0</y></rightTop>
+        <leftBottom><x type="uint32">0</x><y type="uint32">0</y></leftBottom>
+        <rightBottom><x type="uint32">0</x><y type="uint32">0</y></rightBottom>
+        <PlateConfidence type="uint32" count="0"/>
+        <plateColor type="uint32" count="0"/>
+        <plateColorRate type="uint32" count="0"/>
+        <plateStyle type="uint32" count="0"/>
+        <vehiceColor type="uint32" count="0"/>
+        <plateAngleH type="uint32" count="0"/>
+        <plateAngleV type="uint32" count="0"/>
+        <targetImageData>
+            <dataType type="uint32">0</dataType>
+            <targetType type="targetType"></targetType>
+            <width type="uint32">0</width>
+            <height type="uint32">0</height>
+            <targetBase64Length type="uint32">770384</targetBase64Length>
+            <targetBase64Data type="string"><![CDATA[BASE64_JPEG_OVERVIEW_IMAGE]]></targetBase64Data>
+        </targetImageData>
+    </item>
+    <item>
+        <image type="uint32">1</image>
+        <vehiceId type="uint32">1</vehiceId>
+        <plateNumber type="string"><![CDATA[IB36NL]]></plateNumber>
+        <plateCharCount type="uint32">6</plateCharCount>
+        <vehicleDirect type="vehicleDirectType">approach</vehicleDirect>
+        <vehicleListType type="vehileMatchAlarmList">whiteList</vehicleListType>
+        <PlateWidth type="uint32">176</PlateWidth>
+        <PlateHeight type="uint32">100</PlateHeight>
+        <SourceImageWidth type="uint32">2688</SourceImageWidth>
+        <SourceImageHeight type="uint32">1776</SourceImageHeight>
+        <leftTop><x type="uint32">7559</x><y type="uint32">2072</y></leftTop>
+        <rightTop><x type="uint32">8214</x><y type="uint32">2072</y></rightTop>
+        <leftBottom><x type="uint32">7559</x><y type="uint32">2635</y></leftBottom>
+        <rightBottom><x type="uint32">8214</x><y type="uint32">2635</y></rightBottom>
+        <PlateConfidence type="uint32" count="9900"/>
+        <plateColor type="uint32" count="3"/>
+        <plateColorRate type="uint32" count="0"/>
+        <plateStyle type="uint32" count="1"/>
+        <vehiceColor type="uint32" count="0"/>
+        <plateAngleH type="uint32" count="0"/>
+        <plateAngleV type="uint32" count="0"/>
+        <province type="string"></province>
+        <carAttr>
+            <color type="vsdCarAttrColorType">white</color>
+            <type type="vsdCarAttrTypeType">saloon car</type>
+            <brand type="vsdCarAttrBrandType">Toyota</brand>
+            <model type="vsdCarAttrModelType">Toyota_Camry</model>
+        </carAttr>
+        <carRect>
+            <x type="uint32">1242</x>
+            <y type="uint32"/>
+            <width type="uint32">586</width>
+            <height type="uint32">446</height>
+        </carRect>
+        <targetImageData>
+            <dataType type="uint32">0</dataType>
+            <targetType type="targetType">car</targetType>
+            <width type="uint32">176</width>
+            <height type="uint32">100</height>
+            <targetBase64Length type="uint32">19520</targetBase64Length>
+            <targetBase64Data type="string"><![CDATA[BASE64_JPEG_PLATE_CROP]]></targetBase64Data>
+        </targetImageData>
+    </item>
+</listInfo>
 </config>
