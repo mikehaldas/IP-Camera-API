@@ -35,7 +35,7 @@ npm install viewtron-sdk
 
 Requires Node.js 18.0.0+. Installs one dependency: `fast-xml-parser`.
 
-Source code: [github.com/mikehaldas/viewtron-nodejs-sdk](https://github.com/mikehaldas/viewtron-nodejs-sdk) | Full API reference: [Node.js SDK Reference](/docs/category/nodejs-sdk-reference)
+Source code: [github.com/mikehaldas/viewtron-nodejs-sdk](https://github.com/mikehaldas/viewtron-nodejs-sdk) | Full API reference: [ViewtronServer](/docs/nodejs-sdk-reference/server), [ViewtronEvent](/docs/nodejs-sdk-reference/events)
 
 ## Receiving Events — ViewtronServer
 
