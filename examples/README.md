@@ -26,14 +26,15 @@ Posts sent directly by a Viewtron IP camera (not through an NVR).
 
 | File | smartType | Description |
 |------|-----------|-------------|
-| [lpr.xml](ipc-v1x/lpr.xml) | `VEHICE` | License plate detected with whitelist/blacklist |
+| [lpr.xml](ipc-v1x/lpr.xml) | `VEHICE` / `VEHICLE` | License plate read with direction, list status (`whiteList`/`blackList` on firmware 5.3.1), confidence, vehicle attributes, overview and plate crop (shape observed on LPR-IP4 firmware 5.3.1) |
 | [face-detection.xml](ipc-v1x/face-detection.xml) | `VFD` | Face detected |
 | [perimeter-intrusion.xml](ipc-v1x/perimeter-intrusion.xml) | `PEA` | Person/vehicle enters an intrusion zone |
 | [line-crossing.xml](ipc-v1x/line-crossing.xml) | `PEA` | Person/vehicle crosses a tripwire line |
 | [zone-entry.xml](ipc-v1x/zone-entry.xml) | `AOIENTRY` | Object enters a defined zone |
 | [zone-exit.xml](ipc-v1x/zone-exit.xml) | `AOILEAVE` | Object exits a defined zone |
 | [video-metadata.xml](ipc-v1x/video-metadata.xml) | `VSD` | Continuous full-frame object detection |
-| [keepalive.xml](ipc-v1x/keepalive.xml) | — | Periodic heartbeat |
+| [keepalive.xml](ipc-v1x/keepalive.xml) | — | Periodic heartbeat, firmware 5.3.1 format (`config` 1.7 + `messageType` `keepalive`). Interval is set in the camera's HTTP POST settings |
+| [keepalive-older-firmware.xml](ipc-v1x/keepalive-older-firmware.xml) | — | Periodic heartbeat, older-firmware format (`<DeviceInfo>` root) |
 | [alarm-status.xml](ipc-v1x/alarm-status.xml) | — | Alarm start/stop notification |
 
 ## Key Differences Between Formats
@@ -41,10 +42,10 @@ Posts sent directly by a Viewtron IP camera (not through an NVR).
 | Feature | IPC v1.x | NVR v2.0 |
 |---------|----------|----------|
 | Config version | `1.0` or `1.7` | `2.0.0` |
-| messageType field | Not present | `keepalive`, `alarmStatus`, `alarmData` |
+| messageType field | Not present on alarm posts; `keepalive` on firmware 5.3.1 keepalives | `keepalive`, `alarmStatus`, `alarmData` |
 | smartType naming | Codes: `PEA`, `VFD`, `VEHICE` | Descriptive: `regionIntrusion`, `videoFaceDetect`, `vehicle` |
 | Timestamps | Unix seconds/ms or formatted date | Unix **microseconds** (16 digits, divide by 1,000,000) |
-| Target type | Numeric: `1`=person, `2`=car, `4`=bike | String: `person`, `car` |
+| Target type | Numeric: `1`=person, `2`=car, `4`=bike (string `car` on LPR-IP4 firmware 5.3.1 plate posts) | String: `person`, `car` |
 | Device info fields | `ipAddress`, `macAddress` | `ip`, `mac`, `channelId` |
 | Event data | `perimeter/perInfo`, `tripwire/tripInfo`, `listInfo` | `eventInfo`, `targetListInfo`, `licensePlateListInfo`, `faceListInfo` |
 | Type annotations | Present (`type="uint32"`) | Not present |
