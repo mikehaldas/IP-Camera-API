@@ -246,7 +246,7 @@ The camera's HTTP POST settings have a **Push Protocol Version** dropdown. You m
 | **Target picture** | Check to include cropped target image in events |
 | **Smart Alarm Type** | Select the detection types you want (e.g., License Plate Detection) |
 
-Click **Save**, then **reboot the camera** — required after changing HTTP POST settings. Deploy your flow in Node-RED and events will start arriving immediately.
+Click **Save**. No reboot is needed; the camera starts sending as soon as the settings are saved. Deploy your flow in Node-RED and events will start arriving immediately.
 
 ### Connection Status
 

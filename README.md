@@ -139,10 +139,10 @@ See [`examples/README.md`](examples/README.md) for the full index, key format di
 
 ## Setup
 
-**IP Camera direct:** Configure the HTTP Post endpoint in the camera's web interface under Alarm Server settings.
+**IP Camera direct:** Configure the HTTP Post endpoint in the camera's web interface under Network > HTTP POST (labeled HTTP Notification on some firmware). This is separate from the camera's legacy Alarm Server settings.
 Setup guide: https://videos.cctvcamerapros.com/support/topic/ip-camera-api-webbooks
 
-**NVR:** Configure the HTTP Post endpoint in the NVR's Alarm Server settings. All cameras connected to the NVR's PoE ports will have their AI events forwarded automatically.
+**NVR:** Configure the HTTP Post endpoint in the NVR's Network > HTTP POST settings (Integration > HTTP POST in the sidebar). All cameras connected to the NVR's PoE ports will have their AI events forwarded automatically.
 Setup guide: https://videos.cctvcamerapros.com/support/topic/setup-nvr-api-webhooks
 
 **Server installation:** See [INSTALL.md](INSTALL.md). Tested on Ubuntu Linux and Raspberry Pi.
