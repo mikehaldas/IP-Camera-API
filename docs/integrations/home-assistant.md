@@ -213,7 +213,7 @@ Then click **Edit > Add** and configure:
 - **Smart Alarm Data:** check **Smart event data**, **Original picture**, and **Target picture**
 - **Smart Alarm Type:** the detection types you want (for LPR, License Plate Detection)
 
-Click Save, then reboot the camera after the first HTTP POST setup. For the full settings table and screenshots, see the [viewtron-home-assistant README](https://github.com/mikehaldas/viewtron-home-assistant#4-configure-the-http-post-webhook-server) or the [HTTP POST Setup guide](/docs/getting-started/http-post-setup).
+Click Save. No reboot is needed; the camera starts sending as soon as the settings are saved. For the full settings table and screenshots, see the [viewtron-home-assistant README](https://github.com/mikehaldas/viewtron-home-assistant#4-configure-the-http-post-webhook-server) or the [HTTP POST Setup guide](/docs/getting-started/http-post-setup).
 
 ### 3. Verify in Home Assistant
 
