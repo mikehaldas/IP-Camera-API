@@ -199,7 +199,7 @@ Click the **Configure** button next to **Event Type** (labeled **Alarm Type** on
 
 The left **Event** column shows all available event types. The right **Send Event** column shows which events will be forwarded via HTTP POST.
 
-Besides AI detections, the Event list includes NVR system events such as IP Address Conflict, Disk IO Error, Disk Full, Illegal Access, Network Disconnected, No Disk, HDD is pulled out, Disk Failure, and Alarm Server Offline. Use the **<<** button to remove an event from the **Send Event** column.
+Besides AI detections, the Event list includes NVR system events such as IP Address Conflict, Disk IO Error, Disk Full, Illegal Access, Network Disconnected, No Disk, HDD is pulled out, Disk Failure, and Alarm Server Offline. Use the **`<<`** button to remove an event from the **Send Event** column.
 
 1. Select event types from the left list (e.g., Line Crossing, Region Intrusion, Plate Recognition)
 2. Click the **>>** button to move them to the **Send Event** column
