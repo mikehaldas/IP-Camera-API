@@ -373,7 +373,7 @@ v2.0.0 is a full rewrite. Existing flows will need to be updated.
 
 **Camera shows "Online" but no events appear:**
 The camera's persistent connection is alive (heartbeats work) but alarm events may not be flowing. Try:
-1. Reboot the camera — required after changing HTTP POST settings
+1. Check that the HTTP POST entry is saved and enabled (no reboot is needed)
 2. Check that **Smart event data** and the correct **Smart Alarm Type** are enabled
 3. For NVR: ensure License Plate Detection is enabled in the HTTP Post settings
 
