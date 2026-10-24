@@ -145,54 +145,11 @@ On LPR-IP4 firmware 5.3.1, saving an entry here also turns on the older V1 HTTP 
 
 ## NVR Setup
 
-### Step 1: Access the NVR Web Interface
+HTTP POST on a Viewtron NVR needs NVR firmware that supports it. Step-by-step NVR screens for that firmware are coming soon.
 
-Open a web browser and navigate to your NVR's IP address. Log in with administrator credentials.
-
-### Step 2: Navigate to the Alarm Server Page
-
-There is no HTTP POST page on the NVR. Go to **Function Panel > Event Notification > Alarm Server**. The page title is **Alarm Server**.
-
-### Step 3: Enable and Configure
-
-Check **Enable** on the Alarm Server page, then enter your server details. Set **Protocol** to `XML`:
-
-![NVR Alarm Server page](./img/http-post-setup/nvr-alarm-server-page.png)
-
-| Setting | Description | Example |
-|---------|-------------|---------|
-| **Server Address** | IP address of your API server | `192.168.0.53` |
-| **Port** | Port your server listens on | `5002` |
-| **Path** | URL path for the webhook endpoint | `/API` |
-| **Protocol** | `XML` | `XML` |
-| **Send Heartbeat** | Check to send periodic keepalive POSTs. **Interval Time(s)** is greyed out until this is checked | Unchecked in the screenshot |
-| **Interval Time(s)** | Heartbeat interval in seconds (used only when **Send Heartbeat** is checked) | `5` (greyed out until Send Heartbeat is checked) |
-| **Schedule** | When to send events (24x7 or custom schedule) | `24x7` |
-
-The **Manage** button next to Schedule opens the schedule window. It has a week grid and presets for 24x7, 24x5, 24x2, and Night.
-
-On NVR firmware that uses the **Alarm Server** page, the fields are: Enable, Server Address, URL (the path), Port, Protocol (`XML`), Send Heartbeat, Interval Time[s] (up to 65535), Schedule with Manage, Alarm Type with **Configure**, Test, and Apply.
-
-### Step 4: Select Event Types
-
-Click the **Configure** button next to **Alarm Type** (labeled **Event Type** on other NVR firmware) to open the **Alarm Type** dialog:
-
-![NVR Alarm Type dialog](./img/http-post-setup/nvr-alarm-type-dialog.png)
-
-The left **Alarm** list shows the available alarm types. The right **Send alarm** list shows which types will be sent to your server. In the screenshot, Plate Recognition is in **Send alarm**.
-
-Besides AI detections, the Alarm list includes NVR system events such as IP Address Conflict, Disk IO Error, Disk Full, Illegal Access, Network Disconnected, No Disk, HDD is pulled out, Disk Failure, and Alarm Server Offline. Use the **`<`** button to remove a type from the **Send alarm** list.
-
-1. Select alarm types in the left **Alarm** list (e.g., Line Crossing, Region Intrusion, Plate Recognition)
-2. Click the **>** button to move them to the **Send alarm** list
-3. Click **OK**
-4. Click **Apply** on the Alarm Server page
-
-### Step 5: Test the Connection
-
-If your server is running, click the **Test** button to verify the NVR can reach your server. Test does not save your settings. If the NVR can't reach the server, it shows Failed to connect to the server. A successful test confirms network connectivity between the NVR and your application. It does not prove your server acknowledges events and keepalives correctly. See [Server Requirements](#server-requirements).
-
-Like the camera, the NVR starts sending as soon as you click **Apply**. No reboot is needed. The NVR forwards events in the v2.0 XML format and does not send **Smart track data** (traject). That is camera-only.
+:::caution Alarm Server is not HTTP POST
+Some NVR firmware has a page called **Alarm Server** under **Event Notification**. That is a separate feature, not HTTP POST, so it is not covered in this guide.
+:::
 
 ---
 
