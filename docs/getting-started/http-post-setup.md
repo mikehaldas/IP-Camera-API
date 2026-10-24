@@ -40,8 +40,8 @@ At the top of the HTTP Notification page (LPR-IP4 firmware 5.3.1) are three sett
 | Setting | Description |
 |---------|-------------|
 | **Push Protocol Version** | `V1` or `V2`. Selects the HTTP POST protocol version the camera uses |
-| **Push Type** | `Push by Subscription` or `Actively Push`. <mark>What each mode changes is not yet documented.</mark> |
-| **Subscription Listening Port** | Port setting used with Push by Subscription. <mark>Exact use not yet documented.</mark> |
+| **Push Type** | Two checkboxes that can both be on. **Actively Push** makes the camera connect out to the servers in the table and POST events to them, which is what you need for your own server. Unchecking it hides the server table and stops the posts. **Push by Subscription** works the other way: a third-party platform connects in to the camera on the Subscription Listening Port and subscribes to events. |
+| **Subscription Listening Port** | The port the camera listens on for Push by Subscription platforms. The default is 8080 (range 1-65535). Actively Push does not use it. |
 
 ### Step 3: Edit the Configuration
 
@@ -66,7 +66,7 @@ The eye icon next to the **Edit** button shows or hides sensitive data in the ta
 
 ![HTTP Notification tab with the Actively Push server table and Edit button](./img/http-post-setup/camera-http-notification-server-table.png)
 
-After you click **Edit**, the **Add**, **Modify**, **Delete**, and **Test** buttons appear above the table, plus a **Save** button for the page. **Add** opens the **Add HTTP Notification** dialog for a new entry. **Modify** opens **Edit HTTP Notification**, the same form, for the selected entry. **Delete** removes the selected entry. <mark>What **Test** checks is not yet documented.</mark> Click **Add** to create a new server entry, or select an entry and click **Modify** to open the **Edit HTTP Notification** dialog. Fill in your API server details. The same dialog also holds the Smart Alarm Data (Step 4) and Smart Alarm Type (Step 5) selections:
+After you click **Edit**, the **Add**, **Modify**, **Delete**, and **Test** buttons appear above the table, plus a **Save** button for the page. **Add** opens the **Add HTTP Notification** dialog for a new entry. **Modify** opens **Edit HTTP Notification**, the same form, for the selected entry. **Delete** removes the selected entry. **Test** sends an empty POST to the selected server's path. If the server answers HTTP 200, the camera shows Test successful. This is not the regular heartbeat, which is a separate keepalive message sent every Heartbeat Interval. Click **Add** to create a new server entry, or select an entry and click **Modify** to open the **Edit HTTP Notification** dialog. Fill in your API server details. The same dialog also holds the Smart Alarm Data (Step 4) and Smart Alarm Type (Step 5) selections:
 
 ![Edit HTTP Notification dialog with server settings, Smart Alarm Data and Smart Alarm Type](./img/http-post-setup/camera-edit-http-notification-dialog.png)
 
@@ -190,7 +190,7 @@ Besides AI detections, the Alarm list includes NVR system events such as IP Addr
 
 ### Step 5: Test the Connection
 
-If your server is running, click the **Test** button to verify the NVR can reach your server. A successful test confirms network connectivity between the NVR and your application. It does not prove your server acknowledges events and keepalives correctly. See [Server Requirements](#server-requirements).
+If your server is running, click the **Test** button to verify the NVR can reach your server. Test does not save your settings. If the NVR can't reach the server, it shows Failed to connect to the server. A successful test confirms network connectivity between the NVR and your application. It does not prove your server acknowledges events and keepalives correctly. See [Server Requirements](#server-requirements).
 
 Like the camera, the NVR starts sending as soon as you click **Apply**. No reboot is needed. The NVR forwards events in the v2.0 XML format and does not send **Smart track data** (traject). That is camera-only.
 
