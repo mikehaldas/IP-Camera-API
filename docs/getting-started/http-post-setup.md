@@ -166,7 +166,7 @@ Check **Enable** on the Alarm Server page, then enter your server details. Set *
 | **Path** | URL path for the webhook endpoint | `/API` |
 | **Protocol** | `XML` | `XML` |
 | **Send Heartbeat** | Check to send periodic keepalive POSTs. **Interval Time(s)** is greyed out until this is checked | Unchecked in the screenshot |
-| **Interval Time(s)** | Heartbeat interval in seconds (used only when **Send Heartbeat** is checked) | `10` (the screenshot shows `5`, greyed out) |
+| **Interval Time(s)** | Heartbeat interval in seconds (used only when **Send Heartbeat** is checked) | `5` (greyed out until Send Heartbeat is checked) |
 | **Schedule** | When to send events (24x7 or custom schedule) | `24x7` |
 
 The **Manage** button next to Schedule opens the schedule window. It has a week grid and presets for 24x7, 24x5, 24x2, and Night.
